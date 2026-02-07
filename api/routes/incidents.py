@@ -65,7 +65,7 @@ async def process_incident_async(
                 logger.info(
                     "Incident processing completed successfully",
                     incident_id=str(incident_id),
-                    pr_url=context.pull_request.url if context.pull_request else None,
+                    pr_url=context.pull_request.pr_url if context.pull_request else None,
                 )
             else:
                 logger.warning(

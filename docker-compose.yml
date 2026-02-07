@@ -1,4 +1,4 @@
-version: '3.8'
+# NeverDown Docker Compose configuration
 
 services:
   neverdown:
@@ -16,7 +16,10 @@ services:
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_MODEL=${LLM_MODEL:-claude-sonnet-4-20250514}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # On macOS Docker Desktop, socket is at ~/.docker/run/docker.sock
+      # On Linux, it's at /var/run/docker.sock
+      # Use the macOS path for this dev environment
+      - ${HOME}/.docker/run/docker.sock:/var/run/docker.sock:ro
       - clones:/tmp/neverdown/clones
       - sanitized:/tmp/neverdown/sanitized
     depends_on:

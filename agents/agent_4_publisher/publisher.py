@@ -222,37 +222,69 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
         the sanitized repo, but the actual file contents come from
         the original repo after applying the patch.
         """
-        # Parse files from patch
+        repo_path = Path(original_repo_path)
+        
+        # Initialize git if needed (for cloned repos)
+        git_dir = repo_path / ".git"
+        if not git_dir.exists():
+            subprocess.run(
+                ["git", "init"],
+                cwd=str(repo_path),
+                capture_output=True,
+                timeout=30,
+            )
+            subprocess.run(
+                ["git", "add", "."],
+                cwd=str(repo_path),
+                capture_output=True,
+                timeout=30,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                capture_output=True,
+                timeout=30,
+            )
+        
+        # Apply the entire patch once
+        apply_result = subprocess.run(
+            ["git", "apply", "--check"],
+            input=patch.diff.encode(),
+            cwd=str(repo_path),
+            capture_output=True,
+            timeout=30,
+        )
+        
+        if apply_result.returncode == 0:
+            # Patch is valid, apply it
+            subprocess.run(
+                ["git", "apply"],
+                input=patch.diff.encode(),
+                cwd=str(repo_path),
+                capture_output=True,
+                timeout=30,
+            )
+            logger.info("Patch applied successfully via git apply")
+        else:
+            # Fallback: try to apply patch manually
+            logger.warning(
+                "git apply --check failed, attempting manual patch",
+                error=apply_result.stderr.decode()[:500]
+            )
+            self._apply_patch_manually(patch, repo_path)
+        
+        # Now push each modified file
         for file_change in patch.files_changed:
             if file_change.action == 'deleted':
                 continue  # Handle deletions separately
             
-            file_path = Path(original_repo_path) / file_change.path
+            file_path = repo_path / file_change.path
             
             if not file_path.exists():
-                logger.warning("File not found, skipping", path=file_change.path)
+                logger.warning("File not found after patch, skipping", path=file_change.path)
                 continue
             
-            # Read file content and apply patch locally
             try:
-                # Apply patch using git apply
-                result = subprocess.run(
-                    ["git", "apply", "--check"],
-                    input=patch.diff.encode(),
-                    cwd=original_repo_path,
-                    capture_output=True,
-                    timeout=30,
-                )
-                
-                if result.returncode == 0:
-                    subprocess.run(
-                        ["git", "apply"],
-                        input=patch.diff.encode(),
-                        cwd=original_repo_path,
-                        capture_output=True,
-                        timeout=30,
-                    )
-                
                 # Read the updated file
                 content = file_path.read_text(encoding='utf-8')
                 
@@ -265,6 +297,7 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
                     content,
                     f"[NeverDown] Apply fix to {file_change.path}",
                 )
+                logger.info("Pushed modified file", path=file_change.path)
                 
             except Exception as e:
                 logger.warning(
@@ -272,6 +305,129 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
                     path=file_change.path,
                     error=str(e),
                 )
+    
+    def _apply_patch_manually(self, patch: Patch, repo_path: Path) -> None:
+        """Manually apply patch when git apply fails.
+        
+        This parses the unified diff and applies changes directly by
+        reading each file and doing find/replace operations.
+        """
+        import re
+        
+        # Parse file blocks from diff
+        file_blocks = self._parse_diff_to_file_blocks(patch.diff)
+        
+        for file_path, block in file_blocks.items():
+            full_path = repo_path / file_path
+            
+            if not full_path.exists():
+                logger.warning("File not found for manual patch", path=file_path)
+                continue
+            
+            try:
+                # Read original file
+                original_content = full_path.read_text(encoding='utf-8')
+                
+                # Apply changes
+                new_content = self._apply_hunk(original_content, block)
+                
+                if new_content != original_content:
+                    full_path.write_text(new_content, encoding='utf-8')
+                    logger.info("Manual patch applied", path=file_path)
+                else:
+                    logger.warning("No changes applied by manual patch", path=file_path)
+            except Exception as e:
+                logger.warning("Failed to apply manual patch", path=file_path, error=str(e))
+    
+    def _parse_diff_to_file_blocks(self, diff: str) -> dict:
+        """Parse a unified diff into per-file blocks.
+        
+        Returns dict mapping file path to list of (old_lines, new_lines) tuples.
+        """
+        blocks = {}
+        current_file = None
+        current_hunks = []
+        
+        lines = diff.split('\n')
+        i = 0
+        
+        while i < len(lines):
+            line = lines[i]
+            
+            # File header
+            if line.startswith('+++ '):
+                # Extract file path
+                if line.startswith('+++ b/'):
+                    current_file = line[6:]
+                elif line.startswith('+++ '):
+                    current_file = line[4:]
+                
+                # Skip a/ prefix variants
+                if current_file and current_file.startswith('/'):
+                    current_file = current_file.lstrip('/')
+                
+                blocks[current_file] = {'old': [], 'new': []}
+            
+            # Hunk header @@ -start,count +start,count @@
+            elif line.startswith('@@') and current_file:
+                pass  # We'll just capture +/- lines
+            
+            # Content lines
+            elif current_file:
+                if line.startswith('-') and not line.startswith('---'):
+                    blocks[current_file]['old'].append(line[1:])
+                elif line.startswith('+') and not line.startswith('+++'):
+                    blocks[current_file]['new'].append(line[1:])
+            
+            i += 1
+        
+        return blocks
+    
+    def _apply_hunk(self, original: str, block: dict) -> str:
+        """Apply a hunk's changes to file content.
+        
+        Uses find/replace to swap old lines for new lines.
+        """
+        result = original
+        old_lines = block.get('old', [])
+        new_lines = block.get('new', [])
+        
+        if not old_lines and not new_lines:
+            return result
+        
+        # Try to find and replace the old content with new content
+        if old_lines:
+            old_content = '\n'.join(old_lines)
+            new_content = '\n'.join(new_lines) if new_lines else ''
+            
+            if old_content in result:
+                result = result.replace(old_content, new_content, 1)
+            else:
+                # Try line-by-line replacements
+                for old_line in old_lines:
+                    if old_line.strip() and old_line in result:
+                        # Find the corresponding new line (if any)
+                        result = result.replace(old_line + '\n', '', 1)
+                
+                # Add new lines (simplified - may not preserve position)
+                if new_lines:
+                    for new_line in new_lines:
+                        if new_line not in result:
+                            # Insert at start if it's an import-like line
+                            if 'import' in new_line.lower():
+                                # Find first non-empty line
+                                lines = result.split('\n')
+                                for i, l in enumerate(lines):
+                                    if l.strip() and not l.strip().startswith('//') and not l.strip().startswith('#'):
+                                        lines.insert(i, new_line)
+                                        break
+                                result = '\n'.join(lines)
+        elif new_lines:
+            # Pure additions - append at the end
+            new_content = '\n'.join(new_lines)
+            result = result + '\n' + new_content
+        
+        return result
     
     def _generate_pr_body(
         self,

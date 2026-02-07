@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     GITHUB_APP_ID: Optional[str] = None
     GITHUB_APP_PRIVATE_KEY: Optional[SecretStr] = None
     GITHUB_WEBHOOK_SECRET: Optional[SecretStr] = None
+    GITHUB_CLIENT_ID: Optional[str] = None
+    GITHUB_CLIENT_SECRET: Optional[SecretStr] = None
     
     # LLM Configuration
     LLM_PROVIDER: str = "anthropic"  # or "openai"
