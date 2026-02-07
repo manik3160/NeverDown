@@ -38,8 +38,8 @@ class IncidentRepository:
             source=data.source,
             status=IncidentStatus.PENDING,
             logs=data.logs,
-            metadata=data.metadata.model_dump(),
-            raw_data={"original_request": data.model_dump()},
+            incident_metadata=data.metadata.model_dump(mode="json"),
+            raw_data={"original_request": data.model_dump(mode="json")},
             timeline=[],
         )
         
@@ -156,7 +156,7 @@ class IncidentRepository:
             update(IncidentORM)
             .where(IncidentORM.id == incident_id)
             .values(
-                timeline=[e.model_dump() for e in new_timeline],
+                timeline=[e.model_dump(mode="json") for e in new_timeline],
                 current_state=state,
                 updated_at=datetime.utcnow(),
             )
@@ -188,7 +188,7 @@ class IncidentRepository:
     
     def _to_model(self, orm: IncidentORM) -> Incident:
         """Convert ORM model to Pydantic model."""
-        metadata_dict = orm.metadata or {}
+        metadata_dict = orm.incident_metadata or {}
         repo_data = metadata_dict.get("repository", {})
         
         return Incident(
