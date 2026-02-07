@@ -1,11 +1,14 @@
 """Main orchestrator for NeverDown incident processing."""
 
 import asyncio
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from uuid import UUID
+
+import httpx
 
 from agents.agent_0_sanitizer.sanitizer import SanitizerAgent, SanitizeInput
 from agents.agent_1_detective.detective import DetectiveAgent, DetectiveInput
@@ -99,6 +102,9 @@ class Orchestrator:
             
             # Step 1: Clone repository
             await self._clone_repository(context)
+            
+            # Step 1.5: Fetch GitHub Actions logs if not provided
+            await self._fetch_github_actions_logs(context)
             
             # Step 2: Sanitize (SECRET PROTECTION)
             sanitize_success = await self._run_sanitizer(context)
@@ -194,6 +200,122 @@ class Orchestrator:
             raise RuntimeError(f"Clone failed: {result.error}")
         
         context.original_repo_path = result.path
+    
+    async def _fetch_github_actions_logs(self, context: OrchestrationContext) -> None:
+        """Fetch failed GitHub Actions workflow logs if no logs provided.
+        
+        This enables the detective agent to analyze CI failures even when
+        manually triggered without explicit error logs.
+        """
+        # Skip if we already have logs
+        if context.logs and context.logs != "Monitoring via webhooks":
+            return
+        
+        # Parse owner/repo from URL
+        match = re.search(r'github\.com[:/]([^/]+)/([^/.]+)', context.repo_url)
+        if not match:
+            logger.warning("Could not parse repo URL for Actions logs", url=context.repo_url)
+            return
+        
+        owner, repo = match.group(1), match.group(2).replace('.git', '')
+        
+        # Get GitHub token
+        token = self.settings.GITHUB_TOKEN.get_secret_value() if self.settings.GITHUB_TOKEN else None
+        if not token:
+            logger.warning("No GitHub token for fetching Actions logs")
+            return
+        
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                # Get recent workflow runs
+                runs_url = f"https://api.github.com/repos/{owner}/{repo}/actions/runs"
+                runs_resp = await client.get(
+                    runs_url,
+                    headers=headers,
+                    params={"status": "failure", "per_page": 5}
+                )
+                
+                if runs_resp.status_code != 200:
+                    logger.warning("Failed to fetch workflow runs", status=runs_resp.status_code)
+                    return
+                
+                runs_data = runs_resp.json()
+                workflow_runs = runs_data.get("workflow_runs", [])
+                
+                if not workflow_runs:
+                    logger.info("No failed workflow runs found")
+                    return
+                
+                # Get the most recent failed run
+                failed_run = workflow_runs[0]
+                run_id = failed_run["id"]
+                
+                logger.info(
+                    "Found failed workflow run",
+                    run_id=run_id,
+                    name=failed_run.get("name"),
+                    conclusion=failed_run.get("conclusion"),
+                )
+                
+                # Get jobs for this run
+                jobs_url = f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/jobs"
+                jobs_resp = await client.get(jobs_url, headers=headers)
+                
+                if jobs_resp.status_code != 200:
+                    logger.warning("Failed to fetch jobs", status=jobs_resp.status_code)
+                    return
+                
+                jobs_data = jobs_resp.json()
+                jobs = jobs_data.get("jobs", [])
+                
+                # Find failed jobs and collect their logs
+                collected_logs = []
+                for job in jobs:
+                    if job.get("conclusion") == "failure":
+                        job_name = job.get("name", "unknown")
+                        
+                        # Get failed steps
+                        for step in job.get("steps", []):
+                            if step.get("conclusion") == "failure":
+                                step_name = step.get("name", "unknown step")
+                                collected_logs.append(
+                                    f"=== JOB: {job_name} | STEP: {step_name} (FAILED) ==="
+                                )
+                        
+                        # Try to get job logs (requires special header)
+                        log_url = f"https://api.github.com/repos/{owner}/{repo}/actions/jobs/{job['id']}/logs"
+                        log_headers = headers.copy()
+                        log_headers["Accept"] = "application/vnd.github+json"
+                        
+                        try:
+                            log_resp = await client.get(log_url, headers=log_headers, follow_redirects=True)
+                            if log_resp.status_code == 200:
+                                # Logs can be large, take last 5000 chars
+                                log_text = log_resp.text
+                                if len(log_text) > 5000:
+                                    log_text = "... [truncated] ...\n" + log_text[-5000:]
+                                collected_logs.append(log_text)
+                        except Exception as e:
+                            logger.warning("Failed to fetch job logs", job=job_name, error=str(e))
+                
+                if collected_logs:
+                    context.logs = "\n\n".join(collected_logs)
+                    context.ci_output = context.logs
+                    logger.info("Fetched GitHub Actions logs", chars=len(context.logs))
+                else:
+                    # At least provide some context
+                    context.logs = f"GitHub Actions workflow '{failed_run.get('name')}' failed on {failed_run.get('head_branch')} branch"
+                    logger.info("No detailed logs available, using summary")
+                    
+        except Exception as e:
+            logger.warning("Error fetching GitHub Actions logs", error=str(e))
+
     
     async def _run_sanitizer(self, context: OrchestrationContext) -> bool:
         """Run the Sanitizer agent."""
@@ -369,14 +491,30 @@ class Orchestrator:
         status: IncidentStatus,
         detail: str,
     ) -> None:
-        """Update incident status with audit logging.
+        """Update incident status with audit logging and timeline events.
         
         Uses a separate session to prevent status update failures
         from contaminating the main transaction.
+        
+        Also adds a timeline event so the frontend can show real-time progress.
         """
         try:
             # Import here to avoid circular dependency
             from database.connection import get_session
+            
+            # Map status to timeline event state for better frontend display
+            status_to_event = {
+                IncidentStatus.PENDING: "QUEUED",
+                IncidentStatus.PROCESSING: "PROCESSING",
+                IncidentStatus.COMPLETED: "COMPLETED",
+                IncidentStatus.FAILED: "FAILED",
+                IncidentStatus.PR_CREATED: "PR_CREATED",
+            }
+            
+            # Use detail to create more specific event names
+            event_state = detail.upper().replace(" ", "_")
+            if len(event_state) > 50:
+                event_state = status_to_event.get(status, status.value.upper())
             
             # Use a separate session for status updates
             async with get_session() as session:
@@ -387,6 +525,16 @@ class Orchestrator:
                 old_status = incident.status if incident else "unknown"
                 
                 await temp_repo.update_status(incident_id, status)
+                
+                # Add timeline event for real-time log display
+                await temp_repo.add_timeline_event(
+                    incident_id,
+                    event_state,
+                    {"status": status.value, "detail": detail},
+                )
+                
+                # Commit the changes (session context manager handles this)
+                await session.commit()
                 
                 audit_logger.log_state_transition(
                     incident_id=str(incident_id),

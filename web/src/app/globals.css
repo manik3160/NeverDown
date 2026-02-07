@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #000000;
+  --color-border: #1F1F1F;
+  --color-primary: #9333FF;
+  --color-secondary: #6366F1;
+  --color-grid-overlay: rgba(255, 255, 255, 0.05);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --animate-marching-ants: marching-ants 1s linear infinite;
+  --animate-scanline: scanline 8s linear infinite;
+  --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  @keyframes marching-ants {
+    0% {
+      stroke-dashoffset: 0;
+    }
+
+    100% {
+      stroke-dashoffset: 24;
+    }
+  }
+
+  @keyframes scanline {
+    0% {
+      transform: translateY(-100%);
+    }
+
+    100% {
+      transform: translateY(100%);
+    }
+  }
+}
+
+/* Base styles */
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: white;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+}
+
+/* Utilities */
+@layer utilities {
+  .bg-grid-pattern {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .redacted-block {
+    background-color: var(--color-primary);
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .redacted-block::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: scanline 8s linear infinite;
+  }
+
+  .blur-header {
+    backdrop-filter: blur(12px);
+    background-color: rgba(0, 0, 0, 0.8);
+    border-bottom: 1px solid var(--color-border);
+  }
+}

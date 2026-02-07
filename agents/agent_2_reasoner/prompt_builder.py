@@ -95,31 +95,48 @@ Output your response in this EXACT format:
         sections.append("")
         
         # Suspected files with code
-        sections.append("# Suspected Files\n")
         total_lines = 0
         
-        for sf in report.suspected_files[:5]:  # Top 5 suspects
-            if total_lines >= max_code_lines:
-                break
+        if report.suspected_files:
+            sections.append("# Suspected Files\n")
+            for sf in report.suspected_files[:5]:  # Top 5 suspects
+                if total_lines >= max_code_lines:
+                    break
+                
+                sections.append(f"## {sf.path} (Confidence: {sf.confidence:.2f})")
+                
+                if sf.line_numbers:
+                    sections.append(f"Suspected lines: {sf.line_numbers}")
+                
+                if sf.evidence:
+                    sections.append("Evidence:")
+                    for ev in sf.evidence[:3]:
+                        sections.append(f"- {ev[:200]}")  # Truncate long evidence
+                
+                # Read and include file content
+                code = self._read_file_content(sf)
+                if code:
+                    lines_added = code.count('\n') + 1
+                    total_lines += lines_added
+                    sections.append(f"```\n{code}\n```")
+                
+                sections.append("")
+        else:
+            # No suspected files - provide project file listing and sample code
+            sections.append("# Project Overview\n")
+            sections.append("No specific files identified from error logs. Here is the project structure:\n")
             
-            sections.append(f"## {sf.path} (Confidence: {sf.confidence:.2f})")
+            # Get file listing
+            file_listing = self._get_project_file_listing()
+            sections.append(f"```\n{file_listing}\n```\n")
             
-            if sf.line_numbers:
-                sections.append(f"Suspected lines: {sf.line_numbers}")
-            
-            if sf.evidence:
-                sections.append("Evidence:")
-                for ev in sf.evidence[:3]:
-                    sections.append(f"- {ev[:200]}")  # Truncate long evidence
-            
-            # Read and include file content
-            code = self._read_file_content(sf)
-            if code:
-                lines_added = code.count('\n') + 1
-                total_lines += lines_added
-                sections.append(f"```\n{code}\n```")
-            
-            sections.append("")
+            # Include key source files
+            sections.append("# Key Source Files\n")
+            key_files = self._get_key_source_files(max_lines=max_code_lines)
+            for file_path, content in key_files:
+                sections.append(f"## {file_path}")
+                sections.append(f"```\n{content}\n```")
+                sections.append("")
         
         # Recent changes
         if report.recent_changes:
@@ -137,8 +154,103 @@ Output your response in this EXACT format:
         # Final instruction
         sections.append("\n---")
         sections.append("Analyze this information and provide your response in the specified format.")
+        sections.append("IMPORTANT: Only reference files that actually exist in the project structure shown above.")
         
         return "\n".join(sections)
+    
+    def _get_project_file_listing(self, max_files: int = 50) -> str:
+        """Get a listing of project files.
+        
+        Args:
+            max_files: Maximum number of files to list
+            
+        Returns:
+            File listing as a string
+        """
+        files = []
+        extensions = {'.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.go', '.rb', 
+                      '.php', '.c', '.cpp', '.h', '.cs', '.swift', '.kt', '.rs',
+                      '.vue', '.svelte', '.json', '.yml', '.yaml'}
+        
+        for f in self.repo_path.rglob('*'):
+            if f.is_file():
+                # Skip common non-source directories
+                rel_path = str(f.relative_to(self.repo_path))
+                if any(skip in rel_path for skip in ['node_modules/', '.git/', 
+                        'vendor/', '__pycache__/', 'venv/', '.venv/', 'dist/', 'build/']):
+                    continue
+                
+                # Check extension
+                if f.suffix in extensions or f.name in ['package.json', 'Dockerfile', 
+                        'Makefile', 'requirements.txt', 'Cargo.toml', 'go.mod']:
+                    files.append(rel_path)
+        
+        files.sort()
+        if len(files) > max_files:
+            files = files[:max_files] + [f"... and {len(files) - max_files} more files"]
+        
+        return '\n'.join(files)
+    
+    def _get_key_source_files(self, max_lines: int = 200) -> list:
+        """Get content of key source files.
+        
+        Args:
+            max_lines: Maximum total lines to include
+            
+        Returns:
+            List of (file_path, content) tuples
+        """
+        result = []
+        total_lines = 0
+        
+        # Priority patterns for common entry points
+        priority_patterns = [
+            'index.js', 'index.ts', 'main.js', 'main.ts', 'main.py', 'app.py',
+            'server.js', 'server.ts', 'src/index.js', 'src/index.ts',
+            'src/App.js', 'src/App.jsx', 'src/App.tsx',
+        ]
+        
+        # Find all source files
+        all_files = []
+        for f in self.repo_path.rglob('*'):
+            if f.is_file() and f.suffix in {'.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.go'}:
+                rel_path = str(f.relative_to(self.repo_path))
+                if not any(skip in rel_path for skip in ['node_modules/', '.git/', 
+                        'vendor/', '__pycache__/', 'venv/', 'test', 'spec']):
+                    all_files.append((rel_path, f))
+        
+        # Sort by priority
+        def priority_key(item):
+            rel_path, f = item
+            for i, pattern in enumerate(priority_patterns):
+                if rel_path.endswith(pattern) or pattern in rel_path:
+                    return i
+            return 100
+        
+        all_files.sort(key=priority_key)
+        
+        # Read top files
+        for rel_path, file_path in all_files[:5]:  # Top 5 files
+            if total_lines >= max_lines:
+                break
+            
+            try:
+                content = file_path.read_text(encoding='utf-8', errors='replace')
+                lines = content.split('\n')
+                
+                # Limit lines per file
+                max_per_file = min(50, max_lines - total_lines)
+                if len(lines) > max_per_file:
+                    content = '\n'.join(lines[:max_per_file]) + '\n... (truncated)'
+                    total_lines += max_per_file
+                else:
+                    total_lines += len(lines)
+                
+                result.append((rel_path, content))
+            except Exception:
+                continue
+        
+        return result
     
     def _read_file_content(
         self,

@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.routes import health, incidents, status, webhooks
+from api.routes import auth, health, incidents, status, webhooks
 from api.middleware.request_logging import RequestLoggingMiddleware
 from config.logging_config import configure_logging, get_logger
 from config.settings import get_settings
@@ -54,17 +54,25 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     
-    # CORS middleware
+    # Request logging middleware (add first so CORS runs before it)
+    app.add_middleware(RequestLoggingMiddleware)
+    
+    # CORS middleware - Explicit origins for development
+    # Note: allow_credentials=True cannot be used with allow_origins=["*"]
+    # In FastAPI, middleware is applied in reverse order, so CORS needs to be added AFTER
+    # other middleware to run first
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"] if settings.DEBUG else [],
+        allow_origins=[
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+        ],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
-    # Request logging middleware
-    app.add_middleware(RequestLoggingMiddleware)
     
     # Exception handlers
     @app.exception_handler(NeverDownError)
@@ -93,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(incidents.router, prefix=settings.API_PREFIX, tags=["Incidents"])
     app.include_router(status.router, prefix=settings.API_PREFIX, tags=["Status"])
     app.include_router(webhooks.router, prefix=settings.API_PREFIX, tags=["Webhooks"])
+    app.include_router(auth.router, prefix=settings.API_PREFIX + "/auth", tags=["Auth"])
     
     return app
 
