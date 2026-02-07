@@ -18,7 +18,6 @@ from database.repositories.audit_repo import AuditRepository
 from database.repositories.incident_repo import IncidentRepository
 from database.repositories.patch_repo import PatchRepository
 from models.incident import IncidentStatus
-from models.verification import VerificationResult, VerificationStatus
 from services.git_service import GitService
 
 logger = get_logger(__name__)
@@ -158,7 +157,7 @@ class Orchestrator:
             await self._update_status(
                 context.incident_id,
                 IncidentStatus.PR_CREATED,
-                f"PR created: {context.pull_request.pr_url if context.pull_request else 'unknown'}",
+                f"PR created: {context.pull_request.url if context.pull_request else 'unknown'}",
             )
             
             return True
@@ -305,35 +304,32 @@ class Orchestrator:
             
             # Create placeholder verification result for Publisher
             # Mark as NO_TESTS so Publisher proceeds without verification
+            from models.verification import VerificationResult, VerificationStatus
             context.verification_result = VerificationResult(
                 incident_id=context.incident_id,
                 patch_id=context.reasoner_output.patch.id,
                 status=VerificationStatus.NO_TESTS,
-                tests_run=[],
+                tests_run=0,
                 tests_passed=0,
                 tests_failed=0,
-                verification_failed_reason="Verification skipped - Docker unavailable",
+                test_results=[],
+                logs="Verification skipped - Docker unavailable",
             )
             return False
         
         context.verification_result = result.output.result
         
         # Update patch with verification status
-        try:
-            await self.patch_repo.mark_verified(
-                context.reasoner_output.patch.id,
-                verified=(context.verification_result.status == VerificationStatus.PASSED),
-            )
-        except Exception as e:
-            # Patch update failures should not halt the pipeline
-            # This may happen if the patch hasn't been committed yet
-            logger.warning("Failed to update patch verification status", error=str(e))
+        await self.patch_repo.update_verification_status(
+            context.reasoner_output.patch.id,
+            context.verification_result.status.value,
+        )
         
-        # Check if verification passed
+        # Check if verification passed or has no tests
+        from models.verification import VerificationStatus
         if context.verification_result.status == VerificationStatus.FAILED:
-            logger.warning("Verification failed, but proceeding to create PR for manual review")
-            # In production, we might want to stop here, but for now we proceed
-            # return False
+            logger.warning("Verification failed, not creating PR")
+            return False
         
         return True
     

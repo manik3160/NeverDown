@@ -27,24 +27,6 @@ IMPORTANT RULES:
 - Include the complete fix, not partial changes
 - If you're uncertain, express that in your confidence score
 
-CRITICAL - UNIFIED DIFF FORMAT:
-Your diff MUST follow the standard unified diff format. Here's the required structure:
-
---- a/path/to/file.js
-+++ b/path/to/file.js
-@@ -10,5 +10,6 @@
- unchanged line before
- unchanged line
--old line to remove
-+new line to add
- unchanged line after
-
-Key requirements:
-- Start with "--- a/" and "+++ b/" file headers
-- Include @@ hunk headers with line numbers
-- Use exactly one space after +, -, or (space) at the start of each line
-- Include at least 3 lines of context before and after changes
-
 Output your response in this EXACT format:
 
 ## Root Cause
@@ -61,13 +43,7 @@ Output your response in this EXACT format:
 
 ## Fix
 ```diff
---- a/path/to/file.ext
-+++ b/path/to/file.ext
-@@ -line,count +line,count @@
- context line before
--old line to remove
-+new line to add
- context line after
+<Your unified diff patch here>
 ```
 
 ## Risks
@@ -235,22 +211,10 @@ Your previous response could not be used. Error: {error_message}
 {previous_response[:1000]}
 
 ## Instructions for Retry
-Please provide a new response that addresses this issue. Make sure your diff follows this EXACT format:
-
---- a/path/to/file.ext
-+++ b/path/to/file.ext
-@@ -startline,numlines +startline,numlines @@
- context line (starts with single space)
--removed line (starts with -)
-+added line (starts with +)
- more context (starts with single space)
-
-CRITICAL REQUIREMENTS:
-1. File headers MUST start with "--- a/" and "+++ b/"
-2. Hunk headers MUST start with "@@ -" and include line numbers
-3. Each content line MUST start with EXACTLY ONE of: ' ' (space), '-', or '+'
-4. Include at least 3 lines of unchanged context before and after your changes
-5. Use the EXACT file path from the error information
+Please provide a new response that addresses this issue. Make sure:
+1. Your diff is valid unified diff format
+2. File paths in the diff match the actual files
+3. The patch can be applied with standard tools
 
 ---
 

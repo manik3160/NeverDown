@@ -112,7 +112,7 @@ class VerifierAgent(BaseAgent[VerifierInput, VerifierOutput]):
                             tests_failed=0,
                             tests_run=[],
                             verification_failed_reason="Patch could not be applied cleanly",
-                            sandbox_info=self.sandbox.get_sandbox_info().model_dump(),
+                            sandbox_info=self.sandbox.get_sandbox_info(),
                         ),
                     ),
                     metadata={"status": "patch_apply_failed"},
@@ -144,7 +144,7 @@ class VerifierAgent(BaseAgent[VerifierInput, VerifierOutput]):
                 tests_failed=failed,
                 tests_run=test_results[:50],  # Limit stored results
                 verification_failed_reason=reason,
-                sandbox_info=self.sandbox.get_sandbox_info().model_dump(),
+                sandbox_info=self.sandbox.get_sandbox_info(),
             )
             
             return AgentResult.ok(
@@ -180,11 +180,6 @@ class VerifierAgent(BaseAgent[VerifierInput, VerifierOutput]):
         
         try:
             patch_file.write_text(patch.diff, encoding='utf-8')
-            
-            # Debug: Save patch to /tmp for inspection
-            debug_patch_path = Path(f"/tmp/debug_patch_{patch.id}.diff")
-            debug_patch_path.write_text(patch.diff,encoding='utf-8')
-            self.logger.info("Saved patch for debugging", path=str(debug_patch_path))
             
             # Try to apply with git apply
             result = subprocess.run(

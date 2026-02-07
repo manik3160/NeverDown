@@ -235,7 +235,7 @@ class GitHubClient:
         owner: str,
         repo: str,
         request: CreatePRRequest,
-    ) -> Dict[str, Any]:
+    ) -> PullRequest:
         """Create a pull request.
         
         IMPORTANT: This creates a PR but does NOT merge it.
@@ -274,12 +274,23 @@ class GitHubClient:
             
             data = response.json()
             
+            pr = PullRequest(
+                id=data["id"],
+                number=data["number"],
+                title=data["title"],
+                body=data["body"],
+                status=PullRequestStatus.OPEN,
+                head_branch=request.head_branch,
+                base_branch=request.base_branch,
+                url=data["html_url"],
+            )
+            
             # Add labels if specified
             if request.labels:
                 await self.add_labels(owner, repo, data["number"], request.labels)
-                data["labels"] = [{"name": l} for l in request.labels]
+                pr.labels = [PRLabel(name=l) for l in request.labels]
             
-            return data
+            return pr
     
     async def add_labels(
         self,
