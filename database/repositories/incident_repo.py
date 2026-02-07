@@ -64,6 +64,10 @@ class IncidentRepository:
         
         return self._to_model(incident_orm)
     
+    async def get(self, incident_id: UUID) -> Incident:
+        """Alias for get_by_id for orchestrator compatibility."""
+        return await self.get_by_id(incident_id)
+    
     async def get_by_id_or_none(self, incident_id: UUID) -> Optional[Incident]:
         """Get incident by ID, returns None if not found."""
         try:

@@ -8,8 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.logging_config import get_logger
 from core.exceptions import IncidentNotFoundError
-from database.connection import get_db_session
+from database.connection import get_db_session, get_session
+from database.repositories.audit_repo import AuditRepository
 from database.repositories.incident_repo import IncidentRepository
+from database.repositories.patch_repo import PatchRepository
 from models.incident import (
     IncidentCreate,
     IncidentResponse,
@@ -17,18 +19,65 @@ from models.incident import (
     IncidentStatus,
     IncidentSummary,
 )
+from services.orchestrator import Orchestrator, OrchestrationContext
 
 router = APIRouter()
 logger = get_logger(__name__)
 
 
-async def process_incident_async(incident_id: UUID) -> None:
+async def process_incident_async(
+    incident_id: UUID,
+    repo_url: str,
+    logs: Optional[str] = None,
+) -> None:
     """Background task to process an incident through the pipeline.
     
-    This is a placeholder - the actual orchestrator will be called here.
+    Creates its own database session since background tasks run
+    after the request context ends.
     """
     logger.info("Starting incident processing", incident_id=str(incident_id))
-    # TODO: Call orchestrator.process_incident(incident_id)
+    
+    try:
+        async with get_session() as session:
+            # Create repositories
+            incident_repo = IncidentRepository(session)
+            patch_repo = PatchRepository(session)
+            audit_repo = AuditRepository(session)
+            
+            # Create orchestrator
+            orchestrator = Orchestrator(
+                incident_repo=incident_repo,
+                patch_repo=patch_repo,
+                audit_repo=audit_repo,
+            )
+            
+            # Build context
+            context = OrchestrationContext(
+                incident_id=incident_id,
+                repo_url=repo_url,
+                logs=logs,
+            )
+            
+            # Run the full pipeline
+            success = await orchestrator.process_incident(context)
+            
+            if success:
+                logger.info(
+                    "Incident processing completed successfully",
+                    incident_id=str(incident_id),
+                    pr_url=context.pull_request.url if context.pull_request else None,
+                )
+            else:
+                logger.warning(
+                    "Incident processing failed",
+                    incident_id=str(incident_id),
+                )
+    except Exception as e:
+        logger.exception(
+            "Fatal error in incident processing",
+            incident_id=str(incident_id),
+            error=str(e),
+        )
 
 
 @router.post("/incidents", response_model=IncidentResponse, status_code=201)
@@ -60,8 +109,16 @@ async def create_incident(
         {"source": data.source.value},
     )
     
-    # Queue for async processing
-    background_tasks.add_task(process_incident_async, incident.id)
+    # Commit so background task can see the incident
+    await db.commit()
+    
+    # Queue for async processing with necessary context
+    background_tasks.add_task(
+        process_incident_async,
+        incident.id,
+        data.metadata.repository.url,
+        data.logs,
+    )
     
     logger.info("Incident created", incident_id=str(incident.id))
     return incident.to_response()

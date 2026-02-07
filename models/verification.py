@@ -16,15 +16,37 @@ class VerificationStatus(str, Enum):
     FAILED = "failed"
     PARTIAL = "partial"  # Some tests pass, some fail
     ERROR = "error"  # Infrastructure error (not test failure)
+    NO_TESTS = "no_tests"  # No tests found or executed
+
+
+class TestOutcome(str, Enum):
+    """Outcome of a single test case."""
+    PASSED = "passed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    ERROR = "error"  # Test errored (not assertion failure)
 
 
 class TestResult(BaseModel):
     """Result of a single test."""
     name: str = Field(..., description="Test name/path")
-    passed: bool
+    outcome: TestOutcome = Field(default=TestOutcome.PASSED)
+    passed: bool = True  # Backwards compatibility
     duration_ms: int = Field(default=0)
     error_message: Optional[str] = Field(default=None)
     output: Optional[str] = Field(default=None, description="Test output/logs")
+
+
+class VerificationResult(BaseModel):
+    """Result of patch verification."""
+    incident_id: UUID
+    patch_id: UUID
+    status: VerificationStatus = VerificationStatus.PENDING
+    tests_passed: int = 0
+    tests_failed: int = 0
+    tests_run: List[TestResult] = Field(default_factory=list)
+    verification_failed_reason: Optional[str] = None
+    sandbox_info: Optional[Dict[str, Any]] = None
 
 
 class SandboxInfo(BaseModel):

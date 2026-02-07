@@ -142,6 +142,17 @@ class SandboxError(SurgeonError):
         self.code = "SANDBOX_ERROR"
 
 
+class SandboxTimeoutError(SandboxError):
+    """Raised when sandbox operation times out."""
+    
+    def __init__(self, timeout_seconds: int, container_id: Optional[str] = None):
+        super().__init__(
+            f"Sandbox operation timed out after {timeout_seconds}s",
+            container_id,
+        )
+        self.code = "SANDBOX_TIMEOUT"
+
+
 class TestFailedError(SurgeonError):
     """Raised when tests fail in sandbox."""
     
@@ -157,6 +168,14 @@ class TestFailedError(SurgeonError):
             details["output_preview"] = output[:1000]
         super().__init__(message, details)
         self.code = "TEST_FAILED"
+
+
+class VerificationFailedError(SurgeonError):
+    """Raised when patch verification fails."""
+    
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "verifier", details)
+        self.code = "VERIFICATION_FAILED"
 
 
 class PRManagerError(AgentError):

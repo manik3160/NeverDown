@@ -28,11 +28,13 @@ class IncidentSource(str, Enum):
 class IncidentStatus(str, Enum):
     """Status of incident processing."""
     PENDING = "pending"
+    PROCESSING = "processing"  # General processing state
     SANITIZING = "sanitizing"
     ANALYZING = "analyzing"
     REASONING = "reasoning"
     VERIFYING = "verifying"
     CREATING_PR = "creating_pr"
+    PR_CREATED = "pr_created"  # Successfully created PR
     COMPLETED = "completed"
     FAILED = "failed"
     RETRYING = "retrying"

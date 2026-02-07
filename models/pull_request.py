@@ -17,6 +17,10 @@ class PRStatus(str, Enum):
     PENDING = "pending"  # Not yet created
 
 
+# Alias for compatibility
+PullRequestStatus = PRStatus
+
+
 class PRLabel(BaseModel):
     """GitHub label."""
     name: str
