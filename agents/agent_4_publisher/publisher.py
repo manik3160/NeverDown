@@ -80,13 +80,14 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
         """
         incident_id = incident_id or input_data.incident_id
         
-        # Verify that verification passed
+        # Log verification status
         if input_data.verification.status != VerificationStatus.PASSED:
             if input_data.verification.status == VerificationStatus.NO_TESTS:
-                self.logger.warning("Creating PR without test verification")
-            else:
-                return AgentResult.fail(
-                    f"Cannot create PR: verification status is {input_data.verification.status.value}",
+                self.logger.warning("Creating PR without test verification - no tests found")
+            elif input_data.verification.status == VerificationStatus.FAILED:
+                self.logger.warning(
+                    "Creating PR with failed verification - patch needs manual review",
+                    reason=input_data.verification.verification_failed_reason
                 )
         
         # Parse repo info
@@ -150,23 +151,42 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
                 ),
             )
             
+            # Transform GitHub response into PullRequest model
+            from models.pull_request import PullRequest, PRStatus
+            from uuid import uuid4
+            pr_model = PullRequest(
+                incident_id=incident_id,
+                patch_id=input_data.patch.id,
+                verification_id=uuid4(),  # VerificationResult doesn't have ID
+                pr_number=pr.get("number"),
+                pr_url=pr.get("html_url"),
+                branch_name=branch_name,
+                base_branch=default_branch,
+                title=pr.get("title", ""),
+                body=pr.get("body", ""),
+                labels=labels,
+                status=PRStatus.OPEN if pr.get("state") == "open" else PRStatus.DRAFT,
+                merge_commit_sha=pr.get("merge_commit_sha"),
+                github_response=pr,
+            )
+            
             # Log the PR creation
             audit_logger.log_security_event(
                 event_name="pr_created",
                 severity="info",
                 details={
                     "incident_id": str(incident_id),
-                    "pr_number": pr.number,
-                    "pr_url": pr.url,
+                    "pr_number": pr_model.pr_number,
+                    "pr_url": pr_model.pr_url,
                     "auto_merge": False,  # Always false
                 },
             )
             
             return AgentResult.ok(
-                pr,
+                pr_model,
                 metadata={
-                    "pr_number": pr.number,
-                    "pr_url": pr.url,
+                    "pr_number": pr_model.pr_number,
+                    "pr_url": pr_model.pr_url,
                     "branch": branch_name,
                 },
             )

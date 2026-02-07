@@ -157,7 +157,7 @@ class Orchestrator:
             await self._update_status(
                 context.incident_id,
                 IncidentStatus.PR_CREATED,
-                f"PR created: {context.pull_request.url if context.pull_request else 'unknown'}",
+                f"PR created: {context.pull_request.pr_url if context.pull_request else 'unknown'}",
             )
             
             return True
@@ -309,24 +309,26 @@ class Orchestrator:
                 incident_id=context.incident_id,
                 patch_id=context.reasoner_output.patch.id,
                 status=VerificationStatus.NO_TESTS,
-                tests_run=0,
+                tests_run=[],  # Empty list, not integer
                 tests_passed=0,
                 tests_failed=0,
-                test_results=[],
-                logs="Verification skipped - Docker unavailable",
+                verification_failed_reason="Verification skipped - Docker unavailable",
             )
             return False
         
         context.verification_result = result.output.result
         
         # Update patch with verification status
-        await self.patch_repo.update_verification_status(
-            context.reasoner_output.patch.id,
-            context.verification_result.status.value,
-        )
+        from models.verification import VerificationStatus
+        try:
+            await self.patch_repo.mark_verified(
+                context.reasoner_output.patch.id,
+                verified=(context.verification_result.status == VerificationStatus.PASSED),
+            )
+        except Exception as e:
+            logger.warning("Failed to update patch verification status", error=str(e))
         
         # Check if verification passed or has no tests
-        from models.verification import VerificationStatus
         if context.verification_result.status == VerificationStatus.FAILED:
             logger.warning("Verification failed, not creating PR")
             return False
