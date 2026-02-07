@@ -76,20 +76,39 @@ class GitService:
         cmd.extend([clone_url, str(clone_path)])
         
         try:
-            # Run clone in subprocess
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=self._get_git_env(),
-            )
+            # Try async subprocess first (preferred)
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=self._get_git_env(),
+                )
+                
+                _, stderr = await asyncio.wait_for(
+                    proc.communicate(),
+                    timeout=120,
+                )
+                
+                returncode = proc.returncode
+            except NotImplementedError:
+                # Fallback for Windows SelectorEventLoop
+                logger.info("Async subprocess not supported, falling back to threaded subprocess")
+                import subprocess
+                
+                def _run_git():
+                    return subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        env=self._get_git_env(),
+                        timeout=120,
+                    )
+                
+                result = await asyncio.to_thread(_run_git)
+                returncode = result.returncode
+                stderr = result.stderr
             
-            _, stderr = await asyncio.wait_for(
-                proc.communicate(),
-                timeout=120,
-            )
-            
-            if proc.returncode != 0:
+            if returncode != 0:
                 error_msg = stderr.decode('utf-8', errors='replace')
                 # Redact any token from error message
                 error_msg = self._redact_token(error_msg)
@@ -123,7 +142,7 @@ class GitService:
             
             return CloneResult(
                 success=False,
-                error=f"Clone error: {str(e)}",
+                error=f"Clone error: {type(e).__name__}: {str(e)}",
             )
     
     def _prepare_clone_url(self, url: str) -> str:
@@ -132,6 +151,10 @@ class GitService:
             return url
         
         token = self.settings.GITHUB_TOKEN.get_secret_value()
+        
+        # Skip dummy tokens
+        if token.lower() in ["dummy_token", "your_token_here", ""]:
+            return url
         
         # Handle HTTPS URLs
         if url.startswith("https://github.com/"):

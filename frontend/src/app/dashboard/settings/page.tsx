@@ -83,7 +83,7 @@ export default function SettingsPage() {
                     id="api_key" 
                     type="password" 
                     placeholder="sk-ant-..." 
-                    value="••••••••••••••••••••••••••••••"
+                    defaultValue="••••••••••••••••••••••••••••••"
                     className="bg-background/50 border-white/10 pr-10"
                   />
                   <Key className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
