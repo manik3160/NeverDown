@@ -1,5 +1,5 @@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Incident } from '@/lib/types';
+import { Incident, IncidentStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/incidents/StatusBadge';
@@ -23,12 +23,12 @@ export function IncidentCard({ incident }: IncidentCardProps) {
             </CardTitle>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Github className="w-3.5 h-3.5" />
-              <span>{incident.metadata.repository.url.split('/').slice(-2).join('/')}</span>
-              {incident.metadata.repository.branch && (
+              <span>{incident.metadata?.repository?.url?.split('/').slice(-2).join('/') || 'No repository'}</span>
+              {incident.metadata?.repository?.branch && (
                 <>
                   <Badge variant="secondary" className="text-xs h-5 px-1.5 font-normal">
                     <GitBranch className="w-3 h-3 mr-1" />
-                    {incident.metadata.repository.branch}
+                    {incident.metadata?.repository?.branch}
                   </Badge>
                 </>
               )}
@@ -37,8 +37,14 @@ export function IncidentCard({ incident }: IncidentCardProps) {
           <StatusBadge status={incident.status} />
         </div>
       </CardHeader>
-      <CardContent className="pb-3 text-sm text-muted-foreground line-clamp-2">
+      <CardContent className="pb-3 text-sm text-muted-foreground line-clamp-2 min-h-[4rem]">
         {incident.description || 'No description provided.'}
+        {incident.current_state && incident.status !== IncidentStatus.COMPLETED && incident.status !== IncidentStatus.FAILED && (
+          <div className="mt-2 flex items-center gap-2 text-xs text-cyan-600 font-medium animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
+            {incident.current_state}...
+          </div>
+        )}
       </CardContent>
       <CardFooter className="pt-0 flex justify-between items-center">
         <div className="flex items-center gap-3">

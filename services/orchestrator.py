@@ -379,15 +379,30 @@ class Orchestrator:
             # Use a separate session for status updates
             async with get_session() as session:
                 temp_repo = IncidentRepository(session)
+                temp_audit = AuditRepository(session)
                 
                 # Get current status for logging
                 incident = await temp_repo.get(incident_id)
                 old_status = incident.status if incident else "unknown"
                 
-                await temp_repo.update_status(incident_id, status)
+                # Set error message if status is FAILED
+                error_message = detail if status == IncidentStatus.FAILED else None
+                await temp_repo.update_status(incident_id, status, error_message=error_message)
                 
+                # Update current_state and add to timeline
+                await temp_repo.add_timeline_event(incident_id, status.value, {"detail": detail})
+                
+                # Log to structured logger
                 audit_logger.log_state_transition(
                     incident_id=str(incident_id),
+                    from_state=old_status.value if hasattr(old_status, 'value') else str(old_status),
+                    to_state=status.value,
+                    metadata={"detail": detail},
+                )
+                
+                # Log to database audit log
+                await temp_audit.log_state_transition(
+                    incident_id=incident_id,
                     from_state=old_status.value if hasattr(old_status, 'value') else str(old_status),
                     to_state=status.value,
                     metadata={"detail": detail},

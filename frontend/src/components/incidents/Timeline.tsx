@@ -10,10 +10,12 @@ interface TimelineProps {
 
 const statusSteps = [
   { status: IncidentStatus.PENDING, label: "Started", icon: Clock },
+  { status: IncidentStatus.PROCESSING, label: "Processing", icon: PlayCircle },
   { status: IncidentStatus.SANITIZING, label: "Sanitized", icon: ShieldAlert },
   { status: IncidentStatus.ANALYZING, label: "Analyzed", icon: PlayCircle },
   { status: IncidentStatus.REASONING, label: "Patched", icon: FileCode },
   { status: IncidentStatus.VERIFYING, label: "Verified", icon: CheckCircle },
+  { status: IncidentStatus.PR_CREATED, label: "PR Created", icon: CheckCircle },
 ];
 
 export function Timeline({ events, currentStatus }: TimelineProps) {

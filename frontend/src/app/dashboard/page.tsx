@@ -4,10 +4,11 @@ import { useIncidents } from '@/hooks/useIncidents';
 import { IncidentCard } from '@/components/incidents/IncidentCard';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, RefreshCw } from 'lucide-react';
+import { PlusCircle, RefreshCw, Activity, ExternalLink } from 'lucide-react';
 import { IncidentList } from '@/components/incidents/IncidentList';
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card } from '@/components/ui/card';
 import { Incident } from '@/lib/types';
 
 export default function DashboardPage() {
@@ -55,6 +56,20 @@ export default function DashboardPage() {
               New Incident
             </Link>
           </Button>
+          <Link href="/dashboard/monitoring" className="col-span-1 lg:col-span-2">
+            <Card className="bg-muted/20 border-white/5 h-14 flex flex-row items-center px-4 py-0 overflow-hidden group hover:bg-muted/30 transition-colors cursor-pointer gap-0">
+               <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-3">
+                     <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                     <span className="text-sm font-bold tracking-tight">System Telemetry Preview</span>
+                  </div>
+                  <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                     <span className="text-[10px] items-center gap-1 flex"><Activity className="w-3 h-3" /> 99.9% Uptime</span>
+                     <ExternalLink className="w-3 h-3" />
+                  </div>
+               </div>
+            </Card>
+          </Link>
       </div>
 
       <Tabs defaultValue="grid" value={view} onValueChange={(v) => setView(v as 'grid' | 'table')}>

@@ -7,18 +7,20 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Github, Loader2, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const [accessCode, setAccessCode] = useState('');
 
-  const handleLogin = (provider: string) => {
+  const handleLogin = (codeOrProvider: string) => {
     setIsLoading(true);
-    // Simulate login
+    // Simulate login / Validate key
     setTimeout(() => {
-      // Set a mock token
-      localStorage.setItem('neverdown_token', 'mock_token_123');
+      // Use the provided code as the token, or a mock for GitHub login
+      const token = codeOrProvider === 'github' ? 'mock_token_123' : codeOrProvider;
+      localStorage.setItem('neverdown_token', token);
       toast.success('Access Granted', { description: 'Welcome to the console.' });
       router.push('/dashboard');
     }, 1500);
@@ -30,7 +32,7 @@ export default function LoginPage() {
       toast.error('Invalid Access Code', { description: 'Code must be at least 5 characters.' });
       return;
     }
-    handleLogin('code');
+    handleLogin(accessCode);
   };
 
   return (

@@ -25,6 +25,14 @@ NeverDown is a production-grade system that autonomously detects CI/CD failures,
 │ • Entropy   │ • Git       │ • Generate  │ • Run       │ • Never │
 │   detection │   history   │   patch     │   tests     │   merge │
 └─────────────┴─────────────┴─────────────┴─────────────┴─────────┘
+
+## 📊 Monitoring & Observability
+
+NeverDown includes built-in observability powered by **Prometheus** and **Grafana**:
+- **System Telemetry**: Real-time tracking of agent response times and success rates.
+- **Incident Trends**: Visualization of incident frequency and severity over time.
+- **Agent Health**: Resource utilization monitoring for all autonomous agents.
+- **Live Status**: Dashboard integration for immediate visibility into pipeline health.
 ```
 
 ## 🚀 Quick Start

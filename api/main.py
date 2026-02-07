@@ -14,6 +14,14 @@ from config.settings import get_settings
 from core.exceptions import NeverDownError
 from database.connection import close_db, init_db
 
+import os
+import asyncio
+import sys
+
+# Windows-specific: Enable ProactorEventLoop for subprocess support
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 logger = get_logger(__name__)
 
 

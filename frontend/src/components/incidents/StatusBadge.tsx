@@ -11,11 +11,13 @@ interface StatusBadgeProps {
 
 const statusConfig: Record<IncidentStatus, { label: string; color: string; icon: any }> = {
   [IncidentStatus.PENDING]: { label: 'Pending', color: 'bg-yellow-500/15 text-yellow-600 border-yellow-200', icon: Clock },
+  [IncidentStatus.PROCESSING]: { label: 'Processing', color: 'bg-blue-500/15 text-blue-600 border-blue-200', icon: PlayCircle },
   [IncidentStatus.SANITIZING]: { label: 'Sanitizing', color: 'bg-blue-500/15 text-blue-600 border-blue-200', icon: FileCode },
   [IncidentStatus.ANALYZING]: { label: 'Analyzing', color: 'bg-indigo-500/15 text-indigo-600 border-indigo-200', icon: PlayCircle },
   [IncidentStatus.REASONING]: { label: 'Reasoning', color: 'bg-purple-500/15 text-purple-600 border-purple-200', icon: PlayCircle },
   [IncidentStatus.VERIFYING]: { label: 'Verifying', color: 'bg-orange-500/15 text-orange-600 border-orange-200', icon: CheckCheck },
   [IncidentStatus.CREATING_PR]: { label: 'Creating PR', color: 'bg-cyan-500/15 text-cyan-600 border-cyan-200', icon: FileCode },
+  [IncidentStatus.PR_CREATED]: { label: 'PR Created', color: 'bg-green-500/15 text-green-600 border-green-200', icon: CheckCircle },
   [IncidentStatus.COMPLETED]: { label: 'Completed', color: 'bg-green-500/15 text-green-600 border-green-200', icon: CheckCircle },
   [IncidentStatus.FAILED]: { label: 'Failed', color: 'bg-red-500/15 text-red-600 border-red-200', icon: XCircle },
   [IncidentStatus.RETRYING]: { label: 'Retrying', color: 'bg-amber-500/15 text-amber-600 border-amber-200', icon: RefreshCcw },
