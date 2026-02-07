@@ -41,8 +41,17 @@ export default function LoginPage() {
 
         <Card className="w-full max-w-md border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl">
             <CardHeader className="text-center space-y-4">
-                <div className="mx-auto bg-cyan-950/30 p-3 rounded-full w-fit border border-cyan-500/20">
+                <div className="mx-auto bg-cyan-950/30 p-3 rounded-full w-fit border border-cyan-500/20 relative group">
                     <Zap className="w-8 h-8 text-cyan-400" />
+                    <div className="absolute inset-0 bg-cyan-400/20 rounded-full animate-ping opacity-20" />
+                </div>
+                <div className="w-full h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent relative overflow-hidden">
+                    <motion.div 
+                        initial={{ left: '-100%' }}
+                        animate={{ left: '100%' }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                        className="absolute top-0 bottom-0 w-1/4 bg-gradient-to-r from-transparent via-cyan-400 to-transparent"
+                    />
                 </div>
                 <div>
                     <CardTitle className="text-2xl font-bold tracking-tight text-white">Console Access</CardTitle>

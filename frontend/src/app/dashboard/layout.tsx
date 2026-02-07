@@ -40,9 +40,9 @@ export default function DashboardLayout({
 
   const navItems = [
     { name: 'Incidents', href: '/dashboard', icon: AlertCircle },
-    { name: 'Workflows', href: '#', icon: Terminal },
-    { name: 'Security', href: '#', icon: ShieldCheck },
-    { name: 'Settings', href: '#', icon: Settings },
+    { name: 'Workflows', href: '/dashboard/workflows', icon: Terminal },
+    { name: 'Security', href: '/dashboard/security', icon: ShieldCheck },
+    { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   ];
 
   if (!isAuthenticated) {
@@ -91,8 +91,17 @@ export default function DashboardLayout({
           })}
         </nav>
 
-        <div className="p-4 border-t">
-          <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive" onClick={handleLogout}>
+        <div className="p-4 border-t space-y-4">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-primary/5 border border-primary/10">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-xs ring-2 ring-background">
+              MP
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-foreground truncate">Manik Pradhan</p>
+              <p className="text-[10px] text-muted-foreground truncate uppercase tracking-tighter">Admin Access</p>
+            </div>
+          </div>
+          <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive transition-colors rounded-xl" onClick={handleLogout}>
             <LogOut className="w-4 h-4" />
             Logout
           </Button>
