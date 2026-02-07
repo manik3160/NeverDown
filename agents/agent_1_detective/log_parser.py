@@ -82,11 +82,18 @@ class LogParser:
         
         # Try Python traceback parsing first
         python_errors = self._parse_python_traceback(log_content)
-        errors.extend(python_errors)
         
         # Try JavaScript stack trace
-        if not python_errors:
-            js_errors = self._parse_js_stack(log_content)
+        js_errors = self._parse_js_stack(log_content)
+        
+        # Prefer the parser that found file paths
+        if python_errors and any(e.file_path for e in python_errors):
+            errors.extend(python_errors)
+        elif js_errors and any(e.file_path for e in js_errors):
+            errors.extend(js_errors)
+        elif python_errors:
+            errors.extend(python_errors)
+        elif js_errors:
             errors.extend(js_errors)
         
         # Try generic error patterns if no structured errors found
@@ -174,12 +181,14 @@ class LogParser:
             line_number = None
             for func, path, line in frames:
                 if 'node_modules' not in path:
-                    file_path = path
+                    # Normalize path: strip leading slash for relative paths
+                    file_path = path.lstrip('/')
                     line_number = line
                     break
             
             if file_path is None and frames:
-                _, file_path, line_number = frames[0]
+                _, path, line_number = frames[0]
+                file_path = path.lstrip('/')
             
             errors.append(ErrorInfo(
                 error_type=error_type,
