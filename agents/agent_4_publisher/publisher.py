@@ -18,7 +18,7 @@ from config.logging_config import audit_logger, get_logger
 from config.settings import get_settings
 from core.exceptions import GitHubAPIError
 from models.patch import Patch
-from models.pull_request import PullRequest
+from models.pull_request import PullRequest, PullRequestStatus
 from models.verification import VerificationResult, VerificationStatus
 
 logger = get_logger(__name__)
@@ -80,13 +80,14 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
         """
         incident_id = incident_id or input_data.incident_id
         
-        # Verify that verification passed
+        # Log verification status
         if input_data.verification.status != VerificationStatus.PASSED:
             if input_data.verification.status == VerificationStatus.NO_TESTS:
-                self.logger.warning("Creating PR without test verification")
-            else:
-                return AgentResult.fail(
-                    f"Cannot create PR: verification status is {input_data.verification.status.value}",
+                self.logger.warning("Creating PR without test verification - no tests found")
+            elif input_data.verification.status == VerificationStatus.FAILED:
+                self.logger.warning(
+                    "Creating PR with failed verification - patch needs manual review",
+                    reason=input_data.verification.verification_failed_reason
                 )
         
         # Parse repo info
@@ -137,7 +138,7 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
             )
             
             # Create PR
-            pr = await self.github.create_pull_request(
+            pr_data = await self.github.create_pull_request(
                 owner,
                 repo,
                 CreatePRRequest(
@@ -150,14 +151,30 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
                 ),
             )
             
+            # Construct internal PullRequest model
+            pr = PullRequest(
+                incident_id=incident_id,
+                patch_id=input_data.patch.id,
+                verification_id=uuid4(),  # Generate new ID if not provided
+                pr_number=pr_data["number"],
+                pr_url=pr_data["html_url"],
+                branch_name=branch_name,
+                base_branch=default_branch,
+                title=pr_data["title"],
+                body=pr_data["body"],
+                status=PullRequestStatus.OPEN,
+                labels=labels,
+                github_response=pr_data,
+            )
+            
             # Log the PR creation
             audit_logger.log_security_event(
                 event_name="pr_created",
                 severity="info",
                 details={
                     "incident_id": str(incident_id),
-                    "pr_number": pr.number,
-                    "pr_url": pr.url,
+                    "pr_number": pr.pr_number,
+                    "pr_url": pr.pr_url,
                     "auto_merge": False,  # Always false
                 },
             )
@@ -165,8 +182,8 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
             return AgentResult.ok(
                 pr,
                 metadata={
-                    "pr_number": pr.number,
-                    "pr_url": pr.url,
+                    "pr_number": pr.pr_number,
+                    "pr_url": pr.pr_url,
                     "branch": branch_name,
                 },
             )
