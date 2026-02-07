@@ -106,7 +106,6 @@ class IncidentResponse(BaseModel):
     error_message: Optional[str]
     pr_url: Optional[str]
     timeline: List[TimelineEvent] = Field(default_factory=list)
-    metadata: IncidentMetadata
     created_at: datetime
     updated_at: datetime
 
@@ -117,9 +116,6 @@ class IncidentSummary(BaseModel):
     title: str
     severity: IncidentSeverity
     status: IncidentStatus
-    current_state: Optional[str] = None
-    error_message: Optional[str] = None
-    metadata: IncidentMetadata
     created_at: datetime
 
 
@@ -164,7 +160,6 @@ class Incident(BaseModel):
             error_message=self.error_message,
             pr_url=self.pr_url,
             timeline=self.timeline,
-            metadata=self.metadata,
             created_at=self.created_at,
             updated_at=self.updated_at,
         )

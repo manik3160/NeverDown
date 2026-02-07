@@ -100,9 +100,6 @@ class IncidentRepository:
                 title=i.title,
                 severity=i.severity,
                 status=i.status,
-                current_state=i.current_state,
-                error_message=i.error_message,
-                metadata=self._to_model(i).metadata,
                 created_at=i.created_at,
             )
             for i in incidents

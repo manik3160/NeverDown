@@ -105,11 +105,11 @@ export default function IncidentDetailPage() {
               <div className="flex flex-wrap gap-6 text-sm">
                 <div className="flex items-center gap-2">
                   <Github className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-medium text-foreground">{incident.metadata?.repository?.url || 'No URL'}</span>
+                  <span className="font-medium text-foreground">{incident.metadata.repository.url}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <GitBranch className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-medium text-foreground">{incident.metadata?.repository?.branch || 'main'}</span>
+                  <span className="font-medium text-foreground">{incident.metadata.repository.branch || 'main'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <SeverityBadge severity={incident.severity} />
