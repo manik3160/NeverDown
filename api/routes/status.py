@@ -96,3 +96,39 @@ async def get_incident_patches(
         }
         for p in patches
     ]
+
+@router.get("/incidents/{incident_id}/detective")
+async def get_detective_analysis(
+    incident_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Get the latest detective report for an incident."""
+    repo = IncidentRepository(db)
+    report = await repo.get_detective_report(incident_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Detective report not found")
+    return report
+
+@router.get("/incidents/{incident_id}/reasoner")
+async def get_reasoner_analysis(
+    incident_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Get the latest reasoning/patch for an incident."""
+    repo = IncidentRepository(db)
+    patch = await repo.get_latest_patch(incident_id)
+    if not patch:
+        raise HTTPException(status_code=404, detail="Reasoner output not found")
+    return patch
+
+@router.get("/incidents/{incident_id}/verifier")
+async def get_verifier_analysis(
+    incident_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Get the latest verification result for an incident."""
+    repo = IncidentRepository(db)
+    result = await repo.get_latest_verification(incident_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Verification result not found")
+    return {"result": result}

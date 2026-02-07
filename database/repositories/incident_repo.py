@@ -189,6 +189,68 @@ class IncidentRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalar() or 0
+
+    async def get_detective_report(self, incident_id: UUID) -> Optional[dict]:
+        """Fetch the detective report from the analyses table."""
+        from database.models import AnalysisORM
+        stmt = select(AnalysisORM).where(
+            AnalysisORM.incident_id == incident_id,
+            AnalysisORM.agent == "detective"
+        ).order_by(AnalysisORM.created_at.desc()).limit(1)
+        result = await self.session.execute(stmt)
+        analysis = result.scalar_one_or_none()
+        return analysis.output if analysis else None
+
+    async def get_latest_patch(self, incident_id: UUID) -> Optional[dict]:
+        """Fetch the latest patch for an incident."""
+        from database.models import PatchORM
+        stmt = select(PatchORM).where(
+            PatchORM.incident_id == incident_id
+        ).order_by(PatchORM.created_at.desc()).limit(1)
+        result = await self.session.execute(stmt)
+        patch = result.scalar_one_or_none()
+        if not patch:
+            return None
+        
+        # Format as ReasonerOutput structure for frontend consistency
+        return {
+            "incident_id": str(incident_id),
+            "patch": {
+                "id": str(patch.id),
+                "diff": patch.diff,
+                "reasoning": patch.reasoning,
+                "confidence": patch.confidence,
+                "assumptions": patch.assumptions,
+                "verified": patch.verified,
+                "created_at": patch.created_at.isoformat()
+            },
+            "root_cause_summary": patch.reasoning.split('\n')[0][:100],
+            "detailed_explanation": patch.reasoning,
+            "confidence": patch.confidence,
+            "assumptions": patch.assumptions,
+        }
+
+    async def get_latest_verification(self, incident_id: UUID) -> Optional[dict]:
+        """Fetch the latest verification result."""
+        from database.models import VerificationORM
+        stmt = select(VerificationORM).where(
+            VerificationORM.incident_id == incident_id
+        ).order_by(VerificationORM.created_at.desc()).limit(1)
+        result = await self.session.execute(stmt)
+        v = result.scalar_one_or_none()
+        if not v:
+            return None
+            
+        return {
+            "id": str(v.id),
+            "status": v.status.value,
+            "tests_passed": v.tests_passed,
+            "tests_failed": v.tests_failed,
+            "tests_skipped": v.tests_skipped,
+            "test_results": v.test_results,
+            "test_output": v.test_output,
+            "created_at": v.created_at.isoformat()
+        }
     
     def _to_model(self, orm: IncidentORM) -> Incident:
         """Convert ORM model to Pydantic model."""
