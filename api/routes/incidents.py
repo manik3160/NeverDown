@@ -185,16 +185,8 @@ async def retry_incident(
         {"previous_status": incident.status.value},
     )
     
-    # Commit changes so background task sees them
-    await db.commit()
-    
     # Queue for processing
-    background_tasks.add_task(
-        process_incident_async, 
-        incident_id,
-        incident.metadata.repository.url,
-        incident.logs
-    )
+    background_tasks.add_task(process_incident_async, incident_id)
     
     incident = await repo.get_by_id(incident_id)
     return incident.to_response()

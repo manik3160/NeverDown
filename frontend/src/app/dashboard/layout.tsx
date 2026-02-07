@@ -41,7 +41,6 @@ export default function DashboardLayout({
   const navItems = [
     { name: 'Incidents', href: '/dashboard', icon: AlertCircle },
     { name: 'Workflows', href: '/dashboard/workflows', icon: Terminal },
-    { name: 'Monitoring', href: '/dashboard/monitoring', icon: LayoutDashboard },
     { name: 'Security', href: '/dashboard/security', icon: ShieldCheck },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   ];

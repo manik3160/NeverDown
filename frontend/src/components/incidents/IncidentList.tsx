@@ -48,7 +48,7 @@ export function IncidentList({ incidents }: IncidentListProps) {
                 <SeverityBadge severity={incident.severity} />
               </TableCell>
               <TableCell className="max-w-[200px] truncate">
-                {incident.metadata?.repository?.url?.split('/').slice(-2).join('/') || 'No repository'}
+                {incident.metadata.repository.url.split('/').slice(-2).join('/')}
               </TableCell>
               <TableCell className="text-muted-foreground whitespace-nowrap">
                 {formatDistanceToNow(new Date(incident.created_at), { addSuffix: true })}
