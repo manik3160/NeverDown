@@ -26,18 +26,35 @@ export default function DashboardPage() {
             Monitor and manage automated incident resolutions.
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+        <div className="flex flex-col items-end gap-2 text-right">
+           <div className="flex gap-2">
+              {[
+                { name: 'SNT', color: 'bg-emerald-500' },
+                { name: 'DET', color: 'bg-blue-500' },
+                { name: 'RSN', color: 'bg-purple-500' },
+                { name: 'VRF', color: 'bg-orange-500' }
+              ].map(agent => (
+                <div key={agent.name} className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/50 border border-white/5">
+                   <span className={`w-1.5 h-1.5 rounded-full ${agent.color} animate-pulse`} />
+                   <span className="text-[10px] font-bold text-muted-foreground">{agent.name}</span>
+                </div>
+              ))}
+           </div>
+           <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Autonomous Pipeline Active</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading} className="h-14 font-bold border-white/5 bg-muted/20 hover:bg-muted/30">
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
+            Refresh Assets
           </Button>
-          <Button asChild>
+          <Button asChild className="h-14 font-bold bg-cyan-600 hover:bg-cyan-500 text-white border-0 shadow-[0_0_20px_rgba(6,182,212,0.2)]">
             <Link href="/incidents/create">
               <PlusCircle className="w-4 h-4 mr-2" />
               New Incident
             </Link>
           </Button>
-        </div>
       </div>
 
       <Tabs defaultValue="grid" value={view} onValueChange={(v) => setView(v as 'grid' | 'table')}>

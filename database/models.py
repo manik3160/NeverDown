@@ -14,7 +14,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.connection import Base
@@ -43,9 +43,9 @@ class IncidentORM(Base):
     current_state: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     logs: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    raw_data: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
-    incident_metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict, name="metadata_json")
-    timeline: Mapped[List[Dict[str, Any]]] = mapped_column(JSONB, default=list)
+    raw_data: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    incident_metadata: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict, name="metadata_json")
+    timeline: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
     pr_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -78,7 +78,7 @@ class AnalysisORM(Base):
         UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
     )
     agent: Mapped[str] = mapped_column(String(50), nullable=False)
-    output: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    output: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     duration_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -99,10 +99,10 @@ class PatchORM(Base):
     diff: Mapped[str] = mapped_column(Text, nullable=False)
     reasoning: Mapped[str] = mapped_column(Text, nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
-    assumptions: Mapped[List[str]] = mapped_column(JSONB, default=list)
-    files_changed: Mapped[List[Dict[str, Any]]] = mapped_column(JSONB, default=list)
+    assumptions: Mapped[List[str]] = mapped_column(JSON, default=list)
+    files_changed: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    token_usage: Mapped[Optional[Dict[str, int]]] = mapped_column(JSONB, nullable=True)
+    token_usage: Mapped[Optional[Dict[str, int]]] = mapped_column(JSON, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
@@ -126,11 +126,11 @@ class VerificationORM(Base):
     status: Mapped[VerificationStatus] = mapped_column(
         SQLEnum(VerificationStatus), default=VerificationStatus.PENDING
     )
-    test_results: Mapped[List[Dict[str, Any]]] = mapped_column(JSONB, default=list)
+    test_results: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
     tests_passed: Mapped[int] = mapped_column(Integer, default=0)
     tests_failed: Mapped[int] = mapped_column(Integer, default=0)
     tests_skipped: Mapped[int] = mapped_column(Integer, default=0)
-    sandbox_info: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    sandbox_info: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     test_output: Mapped[str] = mapped_column(Text, default="")
     patch_applied_cleanly: Mapped[bool] = mapped_column(Boolean, default=True)
     health_check_passed: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -162,11 +162,11 @@ class PullRequestORM(Base):
     
     title: Mapped[str] = mapped_column(String(500), default="")
     body: Mapped[str] = mapped_column(Text, default="")
-    labels: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    labels: Mapped[List[str]] = mapped_column(JSON, default=list)
     
     status: Mapped[PRStatus] = mapped_column(SQLEnum(PRStatus), default=PRStatus.PENDING)
     merge_commit_sha: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
-    github_response: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    github_response: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -189,7 +189,7 @@ class AuditLogORM(Base):
         UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
     )
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)
-    event_data: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    event_data: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     
     # Relationships
