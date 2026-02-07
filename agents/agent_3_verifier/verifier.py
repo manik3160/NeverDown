@@ -112,7 +112,7 @@ class VerifierAgent(BaseAgent[VerifierInput, VerifierOutput]):
                             tests_failed=0,
                             tests_run=[],
                             verification_failed_reason="Patch could not be applied cleanly",
-                            sandbox_info=self.sandbox.get_sandbox_info(),
+                            sandbox_info=self.sandbox.get_sandbox_info().model_dump(),
                         ),
                     ),
                     metadata={"status": "patch_apply_failed"},
@@ -144,7 +144,7 @@ class VerifierAgent(BaseAgent[VerifierInput, VerifierOutput]):
                 tests_failed=failed,
                 tests_run=test_results[:50],  # Limit stored results
                 verification_failed_reason=reason,
-                sandbox_info=self.sandbox.get_sandbox_info(),
+                sandbox_info=self.sandbox.get_sandbox_info().model_dump(),
             )
             
             return AgentResult.ok(
