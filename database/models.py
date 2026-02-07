@@ -44,7 +44,7 @@ class IncidentORM(Base):
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     logs: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     raw_data: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
-    metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict, name="metadata_json")
+    incident_metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict, name="metadata_json")
     timeline: Mapped[List[Dict[str, Any]]] = mapped_column(JSONB, default=list)
     pr_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     
