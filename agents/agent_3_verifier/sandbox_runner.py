@@ -251,5 +251,5 @@ class SandboxRunner:
             container_id="",  # Set at runtime
             image=self.config.image,
             memory_limit=self.config.memory_limit,
-            timeout_seconds=self.config.timeout_seconds,
+            started_at=datetime.utcnow(),
         )
