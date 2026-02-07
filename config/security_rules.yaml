@@ -1,0 +1,196 @@
+# Security Rules Configuration for NeverDown
+# Defines patterns for secret detection and redaction
+
+# Minimum Shannon entropy for high-entropy string detection
+entropy_threshold: 4.5
+
+# Minimum length for high-entropy detection
+min_entropy_length: 16
+
+# File patterns to always scan
+scan_patterns:
+  - "*.env*"
+  - "*.yaml"
+  - "*.yml"
+  - "*.json"
+  - "*.ini"
+  - "*.cfg"
+  - "*.conf"
+  - "*.properties"
+  - "*.toml"
+  - "*.xml"
+  - "*.py"
+  - "*.js"
+  - "*.ts"
+  - "*.go"
+  - "*.rb"
+  - "*.php"
+
+# Files/directories to skip
+skip_patterns:
+  - "node_modules/**"
+  - ".git/**"
+  - "__pycache__/**"
+  - "*.pyc"
+  - ".venv/**"
+  - "venv/**"
+  - "*.lock"
+  - "package-lock.json"
+  - "yarn.lock"
+
+# Secret patterns with categories
+secret_patterns:
+  # AWS
+  - name: aws_access_key_id
+    pattern: '(?:AKIA|ABIA|ACCA|ASIA)[0-9A-Z]{16}'
+    placeholder: "<REDACTED_AWS_ACCESS_KEY>"
+    severity: critical
+    
+  - name: aws_secret_access_key
+    pattern: '(?i)aws[_\-]?secret[_\-]?access[_\-]?key[\s]*[=:]\s*["\']?([A-Za-z0-9/+=]{40})["\']?'
+    placeholder: "<REDACTED_AWS_SECRET_KEY>"
+    severity: critical
+    
+  # GCP
+  - name: gcp_service_account_key
+    pattern: '"type":\s*"service_account"'
+    placeholder: "<REDACTED_GCP_SERVICE_ACCOUNT>"
+    severity: critical
+    
+  - name: gcp_api_key
+    pattern: 'AIza[0-9A-Za-z\-_]{35}'
+    placeholder: "<REDACTED_GCP_API_KEY>"
+    severity: high
+    
+  # Azure
+  - name: azure_storage_key
+    pattern: '(?i)accountkey[=:]["\']?([A-Za-z0-9+/=]{88})["\']?'
+    placeholder: "<REDACTED_AZURE_STORAGE_KEY>"
+    severity: critical
+    
+  # GitHub
+  - name: github_token
+    pattern: 'gh[pousr]_[A-Za-z0-9_]{36}'
+    placeholder: "<REDACTED_GITHUB_TOKEN>"
+    severity: critical
+    
+  - name: github_oauth
+    pattern: 'gho_[A-Za-z0-9]{36}'
+    placeholder: "<REDACTED_GITHUB_OAUTH>"
+    severity: critical
+    
+  # JWT
+  - name: jwt_token
+    pattern: 'eyJ[A-Za-z0-9-_]+\.eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_.+/=]*'
+    placeholder: "<REDACTED_JWT_TOKEN>"
+    severity: high
+    
+  # Database URLs
+  - name: postgres_url
+    pattern: 'postgres(?:ql)?://[^:\s]+:([^@\s]+)@[^/\s]+/[^\s"'']*'
+    placeholder: "postgresql://<REDACTED_USER>:<REDACTED_PASSWORD>@<REDACTED_HOST>/<REDACTED_DB>"
+    severity: critical
+    capture_group: 1
+    
+  - name: mysql_url
+    pattern: 'mysql://[^:\s]+:([^@\s]+)@[^/\s]+/[^\s"'']*'
+    placeholder: "mysql://<REDACTED_USER>:<REDACTED_PASSWORD>@<REDACTED_HOST>/<REDACTED_DB>"
+    severity: critical
+    capture_group: 1
+    
+  - name: mongodb_url
+    pattern: 'mongodb(?:\+srv)?://[^:\s]+:([^@\s]+)@[^\s"'']*'
+    placeholder: "mongodb://<REDACTED_USER>:<REDACTED_PASSWORD>@<REDACTED_HOST>/<REDACTED_DB>"
+    severity: critical
+    capture_group: 1
+    
+  - name: redis_url
+    pattern: 'redis://:[^@\s]+@[^\s"'']*'
+    placeholder: "redis://:<REDACTED_PASSWORD>@<REDACTED_HOST>"
+    severity: high
+    
+  # API Keys (generic patterns)
+  - name: api_key_assignment
+    pattern: '(?i)(?:api[_\-]?key|apikey|api_secret|secret[_\-]?key)[\s]*[=:]\s*["\']?([A-Za-z0-9\-_]{20,})["\']?'
+    placeholder: "<REDACTED_API_KEY>"
+    severity: high
+    capture_group: 1
+    
+  - name: bearer_token
+    pattern: '(?i)(?:bearer|authorization)\s+["\']?([A-Za-z0-9\-_\.]{20,})["\']?'
+    placeholder: "<REDACTED_BEARER_TOKEN>"
+    severity: high
+    capture_group: 1
+    
+  # Private Keys
+  - name: rsa_private_key
+    pattern: '-----BEGIN (?:RSA )?PRIVATE KEY-----'
+    placeholder: "<REDACTED_RSA_PRIVATE_KEY>"
+    severity: critical
+    
+  - name: ssh_private_key
+    pattern: '-----BEGIN OPENSSH PRIVATE KEY-----'
+    placeholder: "<REDACTED_SSH_PRIVATE_KEY>"
+    severity: critical
+    
+  - name: ec_private_key
+    pattern: '-----BEGIN EC PRIVATE KEY-----'
+    placeholder: "<REDACTED_EC_PRIVATE_KEY>"
+    severity: critical
+    
+  # Slack
+  - name: slack_token
+    pattern: 'xox[baprs]-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*'
+    placeholder: "<REDACTED_SLACK_TOKEN>"
+    severity: high
+    
+  - name: slack_webhook
+    pattern: 'https://hooks\.slack\.com/services/T[A-Z0-9]{8}/B[A-Z0-9]{8}/[A-Za-z0-9]{24}'
+    placeholder: "<REDACTED_SLACK_WEBHOOK>"
+    severity: high
+    
+  # Stripe
+  - name: stripe_key
+    pattern: '(?:sk|pk)_(?:live|test)_[0-9a-zA-Z]{24,}'
+    placeholder: "<REDACTED_STRIPE_KEY>"
+    severity: critical
+    
+  # Twilio
+  - name: twilio_api_key
+    pattern: 'SK[0-9a-fA-F]{32}'
+    placeholder: "<REDACTED_TWILIO_API_KEY>"
+    severity: high
+    
+  # SendGrid
+  - name: sendgrid_api_key
+    pattern: 'SG\.[a-zA-Z0-9\-_]{22}\.[a-zA-Z0-9\-_]{43}'
+    placeholder: "<REDACTED_SENDGRID_KEY>"
+    severity: high
+    
+  # Generic password patterns
+  - name: password_assignment
+    pattern: '(?i)(?:password|passwd|pwd)[\s]*[=:]\s*["\']([^"'']+)["\']'
+    placeholder: "<REDACTED_PASSWORD>"
+    severity: high
+    capture_group: 1
+    
+  # IP Addresses (internal)
+  - name: internal_ip
+    pattern: '(?:10|172\.(?:1[6-9]|2[0-9]|3[01])|192\.168)\.\d{1,3}\.\d{1,3}'
+    placeholder: "<REDACTED_INTERNAL_IP>"
+    severity: medium
+
+# Severity levels and actions
+severity_actions:
+  critical:
+    halt_on_count: 50  # Halt if more than 50 critical secrets found
+    require_review: true
+  high:
+    halt_on_count: 100
+    require_review: true
+  medium:
+    halt_on_count: 200
+    require_review: false
+  low:
+    halt_on_count: 500
+    require_review: false
