@@ -8,7 +8,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://neverdown:neverdown@postgres:5432/neverdown
+      - DATABASE_URL=${DATABASE_URL}
       - API_KEY=${API_KEY}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}

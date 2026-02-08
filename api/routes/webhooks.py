@@ -162,7 +162,7 @@ async def github_webhook(
     
     logger.info(
         "Received GitHub webhook",
-        event=x_github_event,
+        github_event=x_github_event,
         action=payload.get("action"),
     )
     
@@ -178,8 +178,18 @@ async def github_webhook(
     if x_github_event == "check_suite":
         return await handle_check_suite(payload, background_tasks, db)
     
+    # Handle ping event (sent when webhook is first configured)
+    if x_github_event == "ping":
+        logger.info("GitHub webhook ping received", hook_id=payload.get("hook_id"))
+        return {"status": "ok", "message": "pong"}
+    
+    # Handle push events (ignore, we care about CI results, not pushes)
+    if x_github_event == "push":
+        logger.info("Push event received, ignoring (waiting for CI results)")
+        return {"status": "ignored", "reason": "push events are not processed, waiting for workflow_run or check_run"}
+    
     # Acknowledge but don't process other events
-    return {"status": "ignored", "event": x_github_event}
+    return {"status": "ignored", "github_event": x_github_event}
 
 
 async def handle_workflow_run(
