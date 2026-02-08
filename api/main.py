@@ -54,24 +54,18 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     
-    # Request logging middleware (add first so CORS runs before it)
+    # Request logging middleware - added FIRST so it runs LAST (after CORS)
     app.add_middleware(RequestLoggingMiddleware)
     
-    # CORS middleware - Explicit origins for development
-    # Note: allow_credentials=True cannot be used with allow_origins=["*"]
-    # In FastAPI, middleware is applied in reverse order, so CORS needs to be added AFTER
-    # other middleware to run first
+    # CORS middleware - added LAST so it runs FIRST
+    # Using wildcard for development. In production, specify exact origins.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-            "http://localhost:8000",
-            "http://127.0.0.1:8000",
-        ],
-        allow_credentials=True,
+        allow_origins=["*"],
+        allow_credentials=False,  # Cannot use credentials with wildcard
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"],
     )
     
     # Exception handlers

@@ -24,6 +24,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         call_next: Callable,
     ) -> Response:
         """Process request and log details."""
+        # Skip OPTIONS requests (CORS preflight) to avoid interference
+        if request.method == "OPTIONS":
+            return await call_next(request)
+        
         start_time = time.perf_counter()
         
         # Get client IP (handling proxies)
