@@ -47,6 +47,9 @@ class IncidentORM(Base):
     incident_metadata: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict, name="metadata_json")
     timeline: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
     pr_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    pr_branch_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    feedback_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    feedback_iteration: Mapped[int] = mapped_column(Integer, default=0)
     
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(

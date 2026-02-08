@@ -278,6 +278,54 @@ class IncidentRepository:
             ),
             timeline=[TimelineEvent(**e) for e in (orm.timeline or [])],
             pr_url=orm.pr_url,
+            pr_branch_name=getattr(orm, 'pr_branch_name', None),
+            feedback_text=getattr(orm, 'feedback_text', None),
+            feedback_iteration=getattr(orm, 'feedback_iteration', 0),
             created_at=orm.created_at,
             updated_at=orm.updated_at,
         )
+
+    async def set_feedback(
+        self,
+        incident_id: UUID,
+        feedback_text: str,
+        increment_iteration: bool = True,
+    ) -> Incident:
+        """Store feedback and optionally increment iteration counter."""
+        incident = await self.get_by_id(incident_id)
+        new_iteration = (incident.feedback_iteration or 0) + 1 if increment_iteration else incident.feedback_iteration
+        
+        stmt = (
+            update(IncidentORM)
+            .where(IncidentORM.id == incident_id)
+            .values(
+                feedback_text=feedback_text,
+                feedback_iteration=new_iteration,
+                updated_at=datetime.utcnow(),
+            )
+        )
+        await self.session.execute(stmt)
+        
+        return await self.get_by_id(incident_id)
+
+    async def set_pr_branch(self, incident_id: UUID, branch_name: str) -> Incident:
+        """Store the PR branch name for future updates."""
+        stmt = (
+            update(IncidentORM)
+            .where(IncidentORM.id == incident_id)
+            .values(pr_branch_name=branch_name, updated_at=datetime.utcnow())
+        )
+        await self.session.execute(stmt)
+        
+        return await self.get_by_id(incident_id)
+
+    async def get_previous_patch_diff(self, incident_id: UUID) -> Optional[str]:
+        """Get the diff from the most recent patch for this incident."""
+        from database.models import PatchORM
+        stmt = select(PatchORM).where(
+            PatchORM.incident_id == incident_id
+        ).order_by(PatchORM.created_at.desc()).limit(1)
+        result = await self.session.execute(stmt)
+        patch = result.scalar_one_or_none()
+        return patch.diff if patch else None
+
