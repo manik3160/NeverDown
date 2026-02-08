@@ -160,10 +160,18 @@ class Orchestrator:
                 return False
             
             # Success!
+            # Store the branch name for potential future updates
+            if context.pull_request and hasattr(context.pull_request, 'branch_name'):
+                await self.incident_repo.set_pr_branch(
+                    context.incident_id,
+                    context.pull_request.branch_name,
+                )
+            
+            # Set status to AWAITING_REVIEW (human-in-the-loop)
             await self._update_status(
                 context.incident_id,
-                IncidentStatus.PR_CREATED,
-                f"PR created: {context.pull_request.pr_url if context.pull_request else 'unknown'}",
+                IncidentStatus.AWAITING_REVIEW,
+                f"PR created: {context.pull_request.pr_url if context.pull_request else 'unknown'} - awaiting human review",
             )
             
             return True
@@ -557,3 +565,239 @@ class Orchestrator:
                 shutil.rmtree(context.sanitized_repo_path, ignore_errors=True)
             except Exception:
                 pass
+
+    async def run_refinement_loop(
+        self,
+        incident_id: UUID,
+        feedback_text: str,
+    ) -> bool:
+        """Re-run Reasoner → Verifier → Publisher with user feedback.
+        
+        This method is called when a user requests changes on a PR.
+        It fetches the original context and previous patch, builds a
+        refinement prompt that includes user feedback, and re-runs
+        only the relevant agents to update the existing PR.
+        
+        Args:
+            incident_id: The incident ID to refine
+            feedback_text: User's feedback for refinement
+            
+        Returns:
+            True if refinement succeeded and PR was updated
+        """
+        context = None
+        try:
+            # Fetch incident
+            incident = await self.incident_repo.get(incident_id)
+            if not incident:
+                logger.error("Incident not found for refinement", incident_id=str(incident_id))
+                return False
+            
+            # Get repository info from metadata
+            repo_url = incident.metadata.repository.url
+            existing_branch = incident.pr_branch_name
+            
+            if not existing_branch:
+                logger.error("No existing branch found for refinement", incident_id=str(incident_id))
+                return False
+            
+            await self._update_status(
+                incident_id,
+                IncidentStatus.PROCESSING,
+                "Starting refinement with user feedback",
+            )
+            
+            # Clone repository
+            context = OrchestrationContext(
+                incident_id=incident_id,
+                repo_url=repo_url,
+                logs=incident.logs,
+            )
+            await self._clone_repository(context)
+            
+            # Run sanitizer (need sanitized code for reasoner)
+            sanitize_success = await self._run_sanitizer(context)
+            if not sanitize_success:
+                await self._update_status(
+                    incident_id,
+                    IncidentStatus.FAILED,
+                    "Refinement sanitization failed",
+                )
+                return False
+            
+            # Fetch detective report from database
+            detective_report_dict = await self.incident_repo.get_detective_report(incident_id)
+            if not detective_report_dict:
+                logger.error("No detective report found for refinement", incident_id=str(incident_id))
+                await self._update_status(
+                    incident_id,
+                    IncidentStatus.FAILED,
+                    "No detective report found for refinement",
+                )
+                return False
+            
+            # Reconstruct detective report
+            from models.analysis import DetectiveReport, ErrorInfo, FailureCategory, SuspectedFile
+            context.detective_report = DetectiveReport(
+                errors=[ErrorInfo(**e) for e in detective_report_dict.get("errors", [])],
+                suspected_files=[SuspectedFile(**f) for f in detective_report_dict.get("suspected_files", [])],
+                failure_category=FailureCategory(detective_report_dict.get("failure_category", "unknown")),
+                evidence=detective_report_dict.get("evidence", []),
+                recent_changes=[],
+            )
+            
+            # Fetch previous patch for context
+            previous_patch_diff = await self.incident_repo.get_previous_patch_diff(incident_id)
+            
+            # Build refinement prompt for Reasoner
+            from agents.agent_2_reasoner.prompt_builder import PromptBuilder
+            prompt_builder = PromptBuilder(context.sanitized_repo_path)
+            
+            # Create refinement input for reasoner
+            await self._update_status(
+                incident_id,
+                IncidentStatus.PROCESSING,
+                "Generating refined fix with user feedback",
+            )
+            
+            # Run reasoner with refinement context
+            from agents.agent_2_reasoner.reasoner import ReasonerInput
+            
+            # Add feedback context to detective report evidence
+            context.detective_report.evidence.append(
+                f"USER FEEDBACK (refinement): {feedback_text}"
+            )
+            if previous_patch_diff:
+                context.detective_report.evidence.append(
+                    f"PREVIOUS PATCH ATTEMPT:\n```diff\n{previous_patch_diff[:2000]}\n```"
+                )
+            
+            reasoner_success = await self._run_reasoner(context)
+            if not reasoner_success:
+                await self._update_status(
+                    incident_id,
+                    IncidentStatus.FAILED,
+                    "Refinement reasoner failed",
+                )
+                return False
+            
+            # Run verifier
+            verifier_success = await self._run_verifier(context)
+            if not verifier_success:
+                logger.warning(
+                    "Refinement verification skipped or failed - proceeding with unverified patch",
+                    incident_id=str(incident_id),
+                )
+                # Don't halt - continue to Publisher
+            
+            # Run publisher with existing branch (update PR, don't create new)
+            await self._update_status(
+                incident_id,
+                IncidentStatus.PROCESSING,
+                "Updating existing PR with refined fix",
+            )
+            
+            # Modify publisher input to use existing branch
+            from agents.agent_4_publisher.publisher import PublisherInput
+            
+            publisher_input = PublisherInput(
+                incident_id=incident_id,
+                original_repo_path=context.original_repo_path,
+                patch=context.reasoner_output.patch,
+                verification=context.verification_result,
+                repo_url=repo_url,
+                root_cause_summary=context.reasoner_output.root_cause_summary,
+            )
+            
+            # Store existing branch for publisher to use
+            # We'll modify _run_publisher_with_existing_branch
+            publisher_success = await self._run_publisher_update(
+                context,
+                existing_branch,
+                incident.feedback_iteration,
+            )
+            
+            if not publisher_success:
+                await self._update_status(
+                    incident_id,
+                    IncidentStatus.FAILED,
+                    "Refinement PR update failed",
+                )
+                return False
+            
+            # Success!
+            await self._update_status(
+                incident_id,
+                IncidentStatus.AWAITING_REVIEW,
+                f"PR updated with refinement #{incident.feedback_iteration + 1}",
+            )
+            
+            return True
+            
+        except Exception as e:
+            logger.exception("Refinement failed", error=str(e))
+            
+            await self._update_status(
+                incident_id,
+                IncidentStatus.FAILED,
+                f"Refinement error: {str(e)[:200]}",
+            )
+            
+            return False
+            
+        finally:
+            # Cleanup cloned repos
+            if context:
+                await self._cleanup(context)
+
+    async def _run_publisher_update(
+        self,
+        context: OrchestrationContext,
+        existing_branch: str,
+        refinement_iteration: int,
+    ) -> bool:
+        """Run Publisher to update an existing PR branch.
+        
+        This pushes new commits to the existing branch rather than
+        creating a new branch and PR.
+        """
+        await self._update_status(
+            context.incident_id,
+            IncidentStatus.PROCESSING,
+            f"Pushing refinement #{refinement_iteration + 1} to existing PR",
+        )
+        
+        # Parse repo info
+        try:
+            owner, repo = self.publisher.github.parse_repo_url(context.repo_url)
+        except ValueError as e:
+            logger.error("Failed to parse repo URL", error=str(e))
+            return False
+        
+        try:
+            # Apply patch to local repo
+            await self.publisher._apply_patch_to_branch(
+                owner,
+                repo,
+                existing_branch,
+                context.reasoner_output.patch,
+                context.original_repo_path,
+            )
+            
+            context.pull_request = type('obj', (object,), {
+                'pr_url': context.repo_url,
+                'branch_name': existing_branch,
+            })()
+            
+            logger.info(
+                "Successfully pushed refinement to existing branch",
+                branch=existing_branch,
+                incident_id=str(context.incident_id),
+            )
+            
+            return True
+            
+        except Exception as e:
+            logger.error("Failed to update existing PR", error=str(e))
+            return False
+

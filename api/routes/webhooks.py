@@ -2,7 +2,7 @@
 
 import hashlib
 import hmac
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,11 +16,91 @@ from models.incident import (
     IncidentMetadata,
     IncidentSeverity,
     IncidentSource,
+    IncidentStatus,
     RepositoryInfo,
 )
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+async def find_and_activate_monitoring_incident(
+    db: AsyncSession,
+    background_tasks: BackgroundTasks,
+    repo_url: str,
+    workflow_data: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Find an existing MONITORING incident for this repo and activate it.
+    
+    Returns the response dict if an incident was activated, None otherwise.
+    """
+    from sqlalchemy import select
+    from database.models import IncidentORM
+    from api.routes.incidents import process_incident_async
+    
+    # Search for MONITORING incidents with matching repo URL
+    stmt = select(IncidentORM).where(
+        IncidentORM.status == IncidentStatus.MONITORING
+    ).order_by(IncidentORM.created_at.desc())
+    
+    result = await db.execute(stmt)
+    monitoring_incidents = result.scalars().all()
+    
+    for incident in monitoring_incidents:
+        # Check if repo URL matches (stored in metadata_json)
+        metadata = incident.incident_metadata or {}
+        repo_info = metadata.get("repository", {})
+        incident_repo_url = repo_info.get("url", "")
+        
+        if incident_repo_url and repo_url and incident_repo_url.rstrip("/") == repo_url.rstrip("/"):
+            # Found a matching MONITORING incident - activate it!
+            logger.info(
+                "Activating MONITORING incident for CI failure",
+                incident_id=str(incident.id),
+                repo_url=repo_url,
+                workflow=workflow_data.get("name"),
+            )
+            
+            # Update status and add timeline event
+            incident_repo = IncidentRepository(db)
+            await incident_repo.update_status(incident.id, IncidentStatus.PROCESSING)
+            await incident_repo.add_timeline_event(
+                incident.id,
+                "CI_FAILURE_DETECTED",
+                {
+                    "workflow": workflow_data.get("name"),
+                    "branch": workflow_data.get("head_branch"),
+                    "conclusion": "failure",
+                    "run_url": workflow_data.get("html_url"),
+                },
+            )
+            await db.commit()
+            
+            # Build logs from workflow data
+            logs = f"""CI Failure Detected via Webhook
+Workflow: {workflow_data.get('name')}
+Branch: {workflow_data.get('head_branch')}
+Commit: {workflow_data.get('head_sha')}
+Run URL: {workflow_data.get('html_url')}
+Conclusion: failure
+
+Error: The workflow run failed. Check the run URL for detailed logs."""
+            
+            # Queue for processing
+            background_tasks.add_task(
+                process_incident_async,
+                incident.id,
+                repo_url,
+                logs,
+            )
+            
+            return {
+                "status": "activated",
+                "incident_id": str(incident.id),
+                "message": "Activated existing MONITORING incident",
+            }
+    
+    return None
 
 
 def verify_github_signature(
@@ -94,6 +174,10 @@ async def github_webhook(
     if x_github_event == "check_run":
         return await handle_check_run(payload, background_tasks, db)
     
+    # Handle check_suite events
+    if x_github_event == "check_suite":
+        return await handle_check_suite(payload, background_tasks, db)
+    
     # Acknowledge but don't process other events
     return {"status": "ignored", "event": x_github_event}
 
@@ -107,11 +191,28 @@ async def handle_workflow_run(
     workflow_run = payload.get("workflow_run", {})
     action = payload.get("action")
     
-    # Only process completed, failed runs
+    # Only process completed, failed runs (Dormant Sentinel logic)
     if action != "completed" or workflow_run.get("conclusion") != "failure":
+        # Log "All Clear" for passing CI
+        if action == "completed" and workflow_run.get("conclusion") == "success":
+            logger.info(
+                "All Clear - CI passed, staying dormant",
+                workflow=workflow_run.get("name"),
+                branch=workflow_run.get("head_branch"),
+                repo=payload.get("repository", {}).get("full_name"),
+            )
         return {"status": "ignored", "reason": "not a failure"}
     
     repo = payload.get("repository", {})
+    repo_url = repo.get("html_url", "")
+    
+    # Check if there's an existing MONITORING incident for this repo
+    # If so, activate it instead of creating a new one
+    existing_incident = await find_and_activate_monitoring_incident(
+        db, background_tasks, repo_url, workflow_run
+    )
+    if existing_incident:
+        return existing_incident
     
     # Create incident
     incident_data = IncidentCreate(
@@ -119,9 +220,10 @@ async def handle_workflow_run(
         description=f"GitHub Actions workflow failed on branch {workflow_run.get('head_branch')}",
         severity=IncidentSeverity.HIGH,
         source=IncidentSource.CI,
+        logs=f"Workflow: {workflow_run.get('name')}\nConclusion: failure\nBranch: {workflow_run.get('head_branch')}\nRun URL: {workflow_run.get('html_url')}",
         metadata=IncidentMetadata(
             repository=RepositoryInfo(
-                url=repo.get("html_url", ""),
+                url=repo_url,
                 branch=workflow_run.get("head_branch", "main"),
                 commit=workflow_run.get("head_sha"),
             ),
@@ -141,7 +243,12 @@ async def handle_workflow_run(
     
     # Queue for processing
     from api.routes.incidents import process_incident_async
-    background_tasks.add_task(process_incident_async, incident.id)
+    background_tasks.add_task(
+        process_incident_async,
+        incident.id,
+        repo_url,
+        incident_data.logs,
+    )
     
     return {
         "status": "created",
@@ -158,8 +265,15 @@ async def handle_check_run(
     check_run = payload.get("check_run", {})
     action = payload.get("action")
     
-    # Only process completed, failed checks
+    # Only process completed, failed checks (Dormant Sentinel logic)
     if action != "completed" or check_run.get("conclusion") != "failure":
+        # Log "All Clear" for passing checks
+        if action == "completed" and check_run.get("conclusion") == "success":
+            logger.info(
+                "All Clear - Check passed, staying dormant",
+                check_name=check_run.get("name"),
+                repo=payload.get("repository", {}).get("full_name"),
+            )
         return {"status": "ignored", "reason": "not a failure"}
     
     repo = payload.get("repository", {})
@@ -188,6 +302,66 @@ async def handle_check_run(
         "Created incident from check_run webhook",
         incident_id=str(incident.id),
         check_name=check_run.get("name"),
+    )
+    
+    # Queue for processing
+    from api.routes.incidents import process_incident_async
+    background_tasks.add_task(process_incident_async, incident.id)
+    
+    return {
+        "status": "created",
+        "incident_id": str(incident.id),
+    }
+
+
+async def handle_check_suite(
+    payload: Dict[str, Any],
+    background_tasks: BackgroundTasks,
+    db: AsyncSession,
+) -> Dict[str, Any]:
+    """Handle check_suite webhook event.
+    
+    Similar to workflow_run but covers the entire suite of checks.
+    """
+    check_suite = payload.get("check_suite", {})
+    action = payload.get("action")
+    
+    # Only process completed, failed suites (Dormant Sentinel logic)
+    if action != "completed" or check_suite.get("conclusion") != "failure":
+        # Log "All Clear" for passing check suites
+        if action == "completed" and check_suite.get("conclusion") == "success":
+            logger.info(
+                "All Clear - Check suite passed, staying dormant",
+                head_branch=check_suite.get("head_branch"),
+                repo=payload.get("repository", {}).get("full_name"),
+            )
+        return {"status": "ignored", "reason": "not a failure"}
+    
+    repo = payload.get("repository", {})
+    
+    # Create incident
+    incident_data = IncidentCreate(
+        title=f"Check Suite Failed on {check_suite.get('head_branch', 'unknown branch')}",
+        description=f"GitHub check suite failed with {check_suite.get('total_count', 0)} checks",
+        severity=IncidentSeverity.HIGH,
+        source=IncidentSource.CI,
+        metadata=IncidentMetadata(
+            repository=RepositoryInfo(
+                url=repo.get("html_url", ""),
+                branch=check_suite.get("head_branch", "main"),
+                commit=check_suite.get("head_sha"),
+            ),
+            job_url=check_suite.get("url"),
+        ),
+    )
+    
+    incident_repo = IncidentRepository(db)
+    incident = await incident_repo.create(incident_data)
+    
+    logger.info(
+        "Created incident from check_suite webhook",
+        incident_id=str(incident.id),
+        head_branch=check_suite.get("head_branch"),
     )
     
     # Queue for processing

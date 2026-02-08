@@ -28,6 +28,7 @@ class IncidentSource(str, Enum):
 class IncidentStatus(str, Enum):
     """Status of incident processing."""
     PENDING = "pending"
+    MONITORING = "MONITORING"  # Dormant sentinel - watching for CI failures
     PROCESSING = "processing"  # General processing state
     SANITIZING = "sanitizing"
     ANALYZING = "analyzing"
@@ -35,6 +36,8 @@ class IncidentStatus(str, Enum):
     VERIFYING = "verifying"
     CREATING_PR = "creating_pr"
     PR_CREATED = "pr_created"  # Successfully created PR
+    AWAITING_REVIEW = "awaiting_review"  # PR created, waiting for human feedback
+    RESOLVED = "resolved"  # Human approved the fix
     COMPLETED = "completed"
     FAILED = "failed"
     RETRYING = "retrying"
@@ -105,6 +108,9 @@ class IncidentResponse(BaseModel):
     current_state: Optional[str]
     error_message: Optional[str]
     pr_url: Optional[str]
+    pr_branch_name: Optional[str] = None
+    feedback_text: Optional[str] = None
+    feedback_iteration: int = 0
     timeline: List[TimelineEvent] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
@@ -134,6 +140,9 @@ class Incident(BaseModel):
     metadata: IncidentMetadata
     timeline: List[TimelineEvent] = Field(default_factory=list)
     pr_url: Optional[str] = None
+    pr_branch_name: Optional[str] = None
+    feedback_text: Optional[str] = None
+    feedback_iteration: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
@@ -159,6 +168,9 @@ class Incident(BaseModel):
             current_state=self.current_state,
             error_message=self.error_message,
             pr_url=self.pr_url,
+            pr_branch_name=self.pr_branch_name,
+            feedback_text=self.feedback_text,
+            feedback_iteration=self.feedback_iteration,
             timeline=self.timeline,
             created_at=self.created_at,
             updated_at=self.updated_at,

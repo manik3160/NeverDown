@@ -11,6 +11,7 @@ const API_BASE = "http://localhost:8000/api/v1";
 // Map backend status to agent index
 const STATUS_TO_AGENT: Record<string, number> = {
   pending: -1,
+  monitoring: -1,  // Dormant Sentinel - watching for CI failures
   processing: 0,
   sanitizing: 0,
   analyzing: 1,
@@ -18,12 +19,15 @@ const STATUS_TO_AGENT: Record<string, number> = {
   verifying: 3,
   creating_pr: 4,
   pr_created: 4,
+  awaiting_review: 4,  // PR created, awaiting human feedback
+  resolved: 5,  // User approved the fix
   completed: 5,
   failed: -2,
 };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Queued",
+  monitoring: "\u2705 All Clear - Watching for CI Failures",
   processing: "Processing",
   sanitizing: "Sanitizing Code",
   analyzing: "Analyzing with Detective",
@@ -31,6 +35,8 @@ const STATUS_LABELS: Record<string, string> = {
   verifying: "Verifying in Sandbox",
   creating_pr: "Creating Pull Request",
   pr_created: "Pull Request Created!",
+  awaiting_review: "Awaiting Human Review",
+  resolved: "Resolved - Fix Approved",
   completed: "Completed",
   failed: "Failed",
 };
@@ -75,8 +81,8 @@ export default function MonitorPage() {
       setStatus(data);
       setError(null);
 
-      // Stop polling if complete or failed
-      if (data.status === "completed" || data.status === "pr_created" || data.status === "failed") {
+      // Stop polling if complete or failed (but NOT for monitoring - keep watching!)
+      if (data.status === "completed" || data.status === "pr_created" || data.status === "resolved" || data.status === "failed") {
         setIsPolling(false);
       }
     } catch (err) {
@@ -139,15 +145,23 @@ export default function MonitorPage() {
           {status && (
             <div className={`
               flex items-center gap-2 px-3 py-1 rounded-full border
-              ${status.status === "completed" || status.status === "pr_created" 
+              ${status.status === "completed" || status.status === "pr_created" || status.status === "resolved"
                 ? "bg-green-500/10 border-green-500/20 text-green-500"
+                : status.status === "monitoring"
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                : status.status === "awaiting_review"
+                ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
                 : status.status === "failed"
                 ? "bg-red-500/10 border-red-500/20 text-red-500"
                 : "bg-primary/10 border-primary/20 text-primary"
               }
             `}>
-              {status.status === "completed" || status.status === "pr_created" ? (
+              {status.status === "completed" || status.status === "pr_created" || status.status === "resolved" ? (
                 <CheckCircle className="w-4 h-4" />
+              ) : status.status === "monitoring" ? (
+                <div className="w-4 h-4 rounded-full bg-emerald-500 animate-pulse" />
+              ) : status.status === "awaiting_review" ? (
+                <Clock className="w-4 h-4" />
               ) : status.status === "failed" ? (
                 <XCircle className="w-4 h-4" />
               ) : (
