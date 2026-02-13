@@ -54,6 +54,9 @@ class GitService:
         Returns:
             CloneResult with path or error
         """
+        # Ensure base clone directory exists (macOS /tmp can be cleaned)
+        self.base_clone_dir.mkdir(parents=True, exist_ok=True)
+        
         # Prepare clone directory
         clone_path = self.base_clone_dir / f"repo-{incident_id}"
         
