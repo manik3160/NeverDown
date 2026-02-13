@@ -316,7 +316,12 @@ async def handle_check_run(
     
     # Queue for processing
     from api.routes.incidents import process_incident_async
-    background_tasks.add_task(process_incident_async, incident.id)
+    background_tasks.add_task(
+        process_incident_async,
+        incident.id,
+        repo.get("html_url", ""),
+        incident_data.logs,
+    )
     
     return {
         "status": "created",
@@ -376,7 +381,12 @@ async def handle_check_suite(
     
     # Queue for processing
     from api.routes.incidents import process_incident_async
-    background_tasks.add_task(process_incident_async, incident.id)
+    background_tasks.add_task(
+        process_incident_async,
+        incident.id,
+        repo.get("html_url", ""),
+        None,  # check_suite doesn't have logs
+    )
     
     return {
         "status": "created",
@@ -433,7 +443,12 @@ async def datadog_webhook(
     
     # Queue for processing
     from api.routes.incidents import process_incident_async
-    background_tasks.add_task(process_incident_async, incident.id)
+    background_tasks.add_task(
+        process_incident_async,
+        incident.id,
+        payload.get("tags", {}).get("repository", ""),
+        incident_data.logs,
+    )
     
     return {
         "status": "created",

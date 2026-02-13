@@ -161,11 +161,20 @@ class Orchestrator:
             
             # Success!
             # Store the branch name for potential future updates
+            # Use a fresh session since the main session may be stale after
+            # the long pipeline run (Neon serverless closes idle connections)
             if context.pull_request and hasattr(context.pull_request, 'branch_name'):
-                await self.incident_repo.set_pr_branch(
-                    context.incident_id,
-                    context.pull_request.branch_name,
-                )
+                try:
+                    from database.connection import get_session
+                    async with get_session() as session:
+                        temp_repo = IncidentRepository(session)
+                        await temp_repo.set_pr_branch(
+                            context.incident_id,
+                            context.pull_request.branch_name,
+                        )
+                        await session.commit()
+                except Exception as e:
+                    logger.warning("Failed to store PR branch name", error=str(e))
             
             # Set status to AWAITING_REVIEW (human-in-the-loop)
             await self._update_status(
@@ -407,8 +416,15 @@ class Orchestrator:
         
         context.reasoner_output = result.output.output
         
-        # Save patch to database
-        await self.patch_repo.create(context.reasoner_output.patch)
+        # Save patch to database using a fresh session
+        try:
+            from database.connection import get_session
+            async with get_session() as session:
+                temp_patch_repo = PatchRepository(session)
+                await temp_patch_repo.create(context.reasoner_output.patch)
+                await session.commit()
+        except Exception as e:
+            logger.warning("Failed to save patch to database", error=str(e))
         
         return True
     
@@ -448,13 +464,17 @@ class Orchestrator:
         
         context.verification_result = result.output.result
         
-        # Update patch with verification status
+        # Update patch with verification status (use fresh session)
         from models.verification import VerificationStatus
         try:
-            await self.patch_repo.mark_verified(
-                context.reasoner_output.patch.id,
-                verified=(context.verification_result.status == VerificationStatus.PASSED),
-            )
+            from database.connection import get_session
+            async with get_session() as session:
+                temp_patch_repo = PatchRepository(session)
+                await temp_patch_repo.mark_verified(
+                    context.reasoner_output.patch.id,
+                    verified=(context.verification_result.status == VerificationStatus.PASSED),
+                )
+                await session.commit()
         except Exception as e:
             logger.warning("Failed to update patch verification status", error=str(e))
         

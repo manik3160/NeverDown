@@ -96,13 +96,10 @@ export default function Home() {
 
 
   return (
-    <main className="min-h-screen relative overflow-hidden">
+    <main className="min-h-screen relative overflow-x-clip overflow-y-visible">
       {/* Sticky Blur Header */}
-      <header className="sticky top-0 z-50 blur-header h-16 flex items-center px-6 justify-between">
+      <header className="sticky top-0 z-50 blur-header h-16 flex items-center px-10 justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-white">
-            N
-          </div>
           <span className="font-bold text-xl tracking-tight">NeverDown</span>
         </div>
         <div className="flex items-center gap-4">
@@ -181,7 +178,7 @@ export default function Home() {
           </motion.div>
 
           {/* Right Side: Pipeline Visualizer */}
-          <div className="h-[600px] border border-border rounded-2xl bg-black/50 backdrop-blur-sm relative overflow-hidden">
+          <div className="h-[600px] border border-border rounded-2xl bg-black/50 backdrop-blur-sm relative">
             <div className="absolute inset-0 bg-grid-pattern opacity-20 pointer-events-none" />
             <PipelineVisualizer />
           </div>

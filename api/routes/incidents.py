@@ -368,7 +368,11 @@ async def retry_incident(
     except IncidentNotFoundError:
         raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
     
-    if incident.status not in (IncidentStatus.FAILED, IncidentStatus.COMPLETED):
+    if incident.status not in (
+        IncidentStatus.FAILED, IncidentStatus.COMPLETED, 
+        IncidentStatus.PROCESSING, IncidentStatus.PENDING,
+        IncidentStatus.MONITORING,
+    ):
         raise HTTPException(
             status_code=400,
             detail=f"Cannot retry incident with status {incident.status.value}",
@@ -381,9 +385,20 @@ async def retry_incident(
         "RETRY_REQUESTED",
         {"previous_status": incident.status.value},
     )
+    await db.commit()
+    
+    # Extract repo_url and logs from incident (Pydantic Incident model)
+    repo_url = incident.metadata.repository.url if incident.metadata else ""
+    logs = incident.logs
+    
+    # On retry, ensure we have logs so process_incident_async runs the full
+    # pipeline instead of entering MONITORING mode. The original webhook
+    # activation already proved CI errors existed.
+    if not logs or len(logs.strip()) < 20 or "error" not in logs.lower():
+        logs = f"[RETRY] Previously detected CI error for {repo_url}. Re-running full pipeline."
     
     # Queue for processing
-    background_tasks.add_task(process_incident_async, incident_id)
+    background_tasks.add_task(process_incident_async, incident_id, repo_url, logs)
     
     incident = await repo.get_by_id(incident_id)
     return incident.to_response()
