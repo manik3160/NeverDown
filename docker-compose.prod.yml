@@ -1,0 +1,63 @@
+# NeverDown — Production Docker Compose
+#
+# Usage (on a VPS with Docker installed):
+#   cp .env.example .env
+#   # Fill in all required values in .env
+#   docker-compose -f docker-compose.prod.yml up -d
+#
+# Exposes the API on port 8000. Put nginx + Certbot in front for HTTPS.
+
+services:
+  neverdown:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - API_KEY=${API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-claude-sonnet-4-20250514}
+      - DEBUG=false
+    volumes:
+      # Docker socket required by the Verifier agent (Agent 3) for sandbox execution.
+      # On Linux VPS this is /var/run/docker.sock.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - clones:/tmp/neverdown/clones
+      - sanitized:/tmp/neverdown/sanitized
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-neverdown}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-neverdown}
+      - POSTGRES_DB=${POSTGRES_DB:-neverdown}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-neverdown}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+    # Do NOT expose Postgres to the host in production.
+    # The neverdown service connects via the internal Docker network.
+
+volumes:
+  postgres_data:
+  clones:
+  sanitized:

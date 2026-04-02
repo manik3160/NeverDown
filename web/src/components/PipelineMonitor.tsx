@@ -56,7 +56,7 @@ export default function PipelineMonitor({
   const fetchStatus = useCallback(async () => {
     try {
       const response = await fetch(
-        `http://localhost:8000/api/v1/incidents/${incidentId}/status`
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"}/incidents/${incidentId}/status`
       );
       
       if (!response.ok) {

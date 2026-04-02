@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Clock, CheckCircle, XCircle, Loader2, ExternalLink, AlertTriangle } from "lucide-react";
 import PipelineVisualizer from "@/components/PipelineVisualizer";
 
-const API_BASE = "http://localhost:8000/api/v1";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 // Map backend status to agent index
 const STATUS_TO_AGENT: Record<string, number> = {
