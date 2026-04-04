@@ -8,15 +8,7 @@ import AgentTerminal from "@/components/AgentTerminal";
 import SandboxDashboard from "@/components/SandboxDashboard";
 import DeployModal from "@/components/DeployModal";
 
-// NEXT_PUBLIC_API_URL may be set to the backend origin (e.g. "https://api.example.com")
-// or already include the "/api/v1" path prefix — both are handled correctly.
-const getApiBase = () => {
-  const configuredBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  const normalizedBase = configuredBase.replace(/\/+$/, "");
-  return normalizedBase.endsWith("/api/v1")
-    ? normalizedBase
-    : `${normalizedBase}/api/v1`;
-};
+import { getApiBase } from "@/lib/api";
 
 const API_BASE = getApiBase();
 

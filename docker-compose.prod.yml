@@ -49,6 +49,9 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    # All three POSTGRES_* variables must be set in .env — there are no defaults
+    # so that missing secrets cause an immediate startup failure rather than
+    # silently deploying with weak credentials.
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
