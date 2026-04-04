@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     # Application
     APP_NAME: str = "NeverDown"
     APP_VERSION: str = "1.0.0"
+    FRONTEND_URL: str = "http://localhost:3000"
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
     

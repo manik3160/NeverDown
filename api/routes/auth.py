@@ -112,5 +112,4 @@ async def github_callback(code: str, state: str, request: Request):
             logger.warning("Failed to get user info", status=user_response.status_code)
             
     # Redirect to frontend with token
-    frontend_url = "http://localhost:3000"  # Assuming frontend port
-    return RedirectResponse(url=f"{frontend_url}?token={access_token}&username={username}")
+    return RedirectResponse(url=f"{settings.FRONTEND_URL}?token={access_token}&username={username}")
