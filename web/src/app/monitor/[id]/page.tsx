@@ -6,13 +6,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Clock, CheckCircle, XCircle, Loader2, ExternalLink, AlertTriangle } from "lucide-react";
 import PipelineVisualizer from "@/components/PipelineVisualizer";
 
-const getApiBase = () => {
-  const configuredBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  const normalizedBase = configuredBase.replace(/\/+$/, "");
-  return normalizedBase.endsWith("/api/v1")
-    ? normalizedBase
-    : `${normalizedBase}/api/v1`;
-};
+import { getApiBase } from "@/lib/api";
 
 const API_BASE = getApiBase();
 
