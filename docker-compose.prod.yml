@@ -23,10 +23,17 @@ services:
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_MODEL=${LLM_MODEL:-claude-sonnet-4-20250514}
       - DEBUG=false
+    group_add:
+      # Set DOCKER_GID in .env to the host docker group's GID so the container
+      # user can access /var/run/docker.sock without running as root.
+      # Find the GID with: stat -c '%g' /var/run/docker.sock
+      - "${DOCKER_GID}"
     volumes:
       # Docker socket required by the Verifier agent (Agent 3) for sandbox execution.
-      # On Linux VPS this is /var/run/docker.sock.
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount the host Docker CLI so SandboxRunner can invoke docker run/kill/rm.
+      # On a typical Linux VPS the binary lives at /usr/bin/docker.
+      - /usr/bin/docker:/usr/bin/docker:ro
       - clones:/tmp/neverdown/clones
       - sanitized:/tmp/neverdown/sanitized
     depends_on:
@@ -43,13 +50,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-neverdown}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-neverdown}
-      - POSTGRES_DB=${POSTGRES_DB:-neverdown}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-neverdown}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
