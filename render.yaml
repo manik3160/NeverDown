@@ -2,6 +2,7 @@ services:
   - type: web
     name: neverdown-backend
     env: docker
+    plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/v1/health
     envVars:
