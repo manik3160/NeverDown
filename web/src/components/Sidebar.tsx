@@ -6,8 +6,7 @@ import {
   LayoutDashboard, 
   Activity, 
   History, 
-  Settings, 
-  ShieldAlert 
+  Settings
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -21,10 +20,7 @@ export default function Sidebar() {
     <div className="w-64 h-screen bg-[#0a0a0b] border-r border-[#1f2937] flex flex-col fixed left-0 top-0">
       {/* Logo Area */}
       <div className="p-6 border-b border-[#1f2937] flex items-center gap-3">
-        <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center">
-          <ShieldAlert className="w-5 h-5 text-white" />
-        </div>
-        <span className="font-bold text-xl tracking-tight text-white">SENTINEL-FLOW</span>
+        <span className="font-bold text-xl tracking-tight text-white">Never Down</span>
       </div>
 
       {/* Navigation */}
