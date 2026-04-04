@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle, XCircle, Loader2, ExternalLink, Clock } from "lucide-react";
+import { getApiBase } from "@/lib/api";
 
 // Map backend status to agent index (0-4)
 const STATUS_TO_AGENT: Record<string, number> = {
@@ -56,7 +57,7 @@ export default function PipelineMonitor({
   const fetchStatus = useCallback(async () => {
     try {
       const response = await fetch(
-        `http://localhost:8000/api/v1/incidents/${incidentId}/status`
+        `${getApiBase()}/incidents/${incidentId}/status`
       );
       
       if (!response.ok) {

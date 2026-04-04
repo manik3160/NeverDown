@@ -8,7 +8,9 @@ import AgentTerminal from "@/components/AgentTerminal";
 import SandboxDashboard from "@/components/SandboxDashboard";
 import DeployModal from "@/components/DeployModal";
 
-const API_BASE = "http://localhost:8000/api/v1";
+import { getApiBase } from "@/lib/api";
+
+const API_BASE = getApiBase();
 
 export default function Home() {
   const [isConnected, setIsConnected] = useState(false);

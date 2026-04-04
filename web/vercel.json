@@ -1,0 +1,13 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "notes": [
+    "NEXT_PUBLIC_API_URL cannot be set here because Vercel injects build-time env vars",
+    "from the project Settings → Environment Variables dashboard, not from vercel.json.",
+    "Go to your Vercel project → Settings → Environment Variables and add:",
+    "  NEXT_PUBLIC_API_URL = https://<your-backend-host>/api/v1"
+  ]
+}
