@@ -36,9 +36,6 @@ services:
       - /usr/bin/docker:/usr/bin/docker:ro
       - clones:/tmp/neverdown/clones
       - sanitized:/tmp/neverdown/sanitized
-    depends_on:
-      postgres:
-        condition: service_healthy
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
@@ -47,27 +44,7 @@ services:
       retries: 3
       start_period: 15s
 
-  postgres:
-    image: postgres:16-alpine
-    # All three POSTGRES_* variables must be set in .env — there are no defaults
-    # so that missing secrets cause an immediate startup failure rather than
-    # silently deploying with weak credentials.
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: always
-    # Do NOT expose Postgres to the host in production.
-    # The neverdown service connects via the internal Docker network.
 
 volumes:
-  postgres_data:
   clones:
   sanitized:
