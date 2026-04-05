@@ -1,270 +1,325 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Github, CheckCircle, AlertTriangle, Shield, Zap, Activity } from "lucide-react";
-import DeployModal from "@/components/DeployModal";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
 
-import { getApiBase } from "@/lib/api";
-
-const API_BASE = getApiBase();
-
-export default function Home() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
-  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
-  const [incidents, setIncidents] = useState<any[]>([]);
+export default function LandingPage() {
+  const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
-    // Auth check
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
-    const user = params.get("username");
-
-    if (token) {
-      localStorage.setItem("github_token", token);
-      if (user) localStorage.setItem("github_username", user);
-      setIsConnected(true);
-      setUsername(user);
-      window.history.replaceState({}, document.title, "/");
-    } else {
-      const storedToken = localStorage.getItem("github_token");
-      if (storedToken) {
-        setIsConnected(true);
-        setUsername(localStorage.getItem("github_username"));
+    const handleScroll = () => {
+      if (window.scrollY > 50) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
       }
-    }
-
-    // Fetch recent incidents for activity feed
-    fetch(`${API_BASE}/incidents`)
-      .then(res => res.json())
-      .then(data => setIncidents(data.slice(0, 5)))
-      .catch(err => console.error("Failed to fetch incidents", err));
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleConnect = () => {
-    if (isConnected) return;
-    window.location.href = `${API_BASE}/auth/github/login`;
-  };
-
-  const handleDeploy = async (repoUrl: string, title: string, logs: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/incidents`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title,
-          description: `Automated fix request for ${repoUrl}`,
-          severity: "medium",
-          source: "manual",
-          logs: logs || "Monitoring via webhooks",
-          metadata: {
-            repository: { url: repoUrl, branch: "main" },
-            triggered_by: username || "web-ui",
-          },
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to create incident");
-      const incident = await response.json();
-      window.location.href = `/pipelines`; // Redirect to active pipelines
-    } catch (error) {
-      console.error("Failed to create incident:", error);
-    }
-  };
-
   return (
-    <div className="p-8 space-y-8">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-          <p className="text-gray-400 mt-1">Real-time autonomous incident remediation metrics.</p>
+    <div className="bg-white text-black min-h-screen font-sans selection:bg-[#ff6b00] selection:text-white">
+      {/* Navigation */}
+      <header className="flex items-center justify-between px-6 md:px-12 py-6 border-b border-gray-100 bg-white sticky top-0 z-50">
+        <div className="flex items-center gap-12">
+          <Link href="/" className="font-bold text-xl md:text-2xl tracking-tight font-serif text-black">NeverDown</Link>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500">
+            <Link href="#product" className="hover:text-black transition-colors">Product</Link>
+            <Link href="#pipeline" className="hover:text-black transition-colors">Pipeline</Link>
+            <Link href="#" className="hover:text-black transition-colors">Pricing</Link>
+            <Link href="#" className="hover:text-black transition-colors">Resources</Link>
+          </nav>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#111827] border border-[#1f2937]">
-             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-             <span className="text-sm font-medium text-gray-300">us-east-1</span>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-sm">
-            {username ? username.substring(0, 2).toUpperCase() : "JD"}
-          </div>
+        <div className="flex items-center gap-6 text-sm font-medium">
+          <Link href="/dashboard" className="text-gray-600 hover:text-black transition-colors font-bold">Login</Link>
+          <Link href="/dashboard" className="bg-[#111] text-white px-5 py-2.5 rounded-md hover:bg-black transition-colors flex items-center gap-2">
+            Get early access <span className="text-[#ff6b00]">→</span>
+          </Link>
         </div>
-      </div>
+      </header>
 
-      {/* Stats Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Active Now Card */}
-        <div className="bg-[#111827] border border-[#1f2937] rounded-xl p-6 relative overflow-hidden">
-          <div className="flex justify-between items-start mb-4">
-             <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                <span className="text-sm font-semibold text-green-500 tracking-wider">ACTIVE NOW</span>
+      <main className="max-w-6xl mx-auto px-6 pt-20 pb-24">
+        {/* Hero Section */}
+        <section className="text-center max-w-4xl mx-auto flex flex-col items-center">
+          <h1 className="text-5xl md:text-7xl font-serif tracking-tight leading-[1.1] mb-6">
+            <span className="text-black font-bold block">Autonomous Incident</span>
+            <span className="text-black font-bold block mb-2">Remediation.</span>
+            <span className={`font-bold transition-colors duration-500 ${isScrolled ? 'text-[#ff6b00]' : 'text-gray-400'}`}>Fixed before you wake up.</span>
+          </h1>
+          
+          <p className="text-lg md:text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
+            A modern SRE platform that replaces manual on-call shifts, noisy 
+            alerts, and lost sleep with one clean, autonomous engine your team 
+            can rely on every single night.
+          </p>
+          
+          <Link href="/dashboard" className="bg-[#111] text-white px-8 py-4 rounded-lg text-lg font-medium hover:bg-black transition-colors flex items-center gap-3 shadow-xl shadow-black/5">
+            Try it Now <span className="bg-[#ff6b00] text-white w-6 h-6 flex items-center justify-center rounded text-sm">→</span>
+          </Link>
+        </section>
+
+        {/* Integration Logos */}
+        <section className="mt-28 border-t border-gray-100 pt-12 overflow-hidden">
+          <div className="relative w-full flex items-center h-16
+                          before:absolute before:left-0 before:top-0 before:z-10 before:h-full before:w-16 before:md:w-32 before:bg-gradient-to-r before:from-white before:to-transparent
+                          after:absolute after:right-0 after:top-0 after:z-10 after:h-full after:w-16 after:md:w-32 after:bg-gradient-to-l after:from-white after:to-transparent">
+            <motion.div 
+              className="flex w-fit"
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{ ease: "linear", duration: 25, repeat: Infinity }}
+            >
+              {[0, 1].map((setIndex) => (
+                <div key={setIndex} className="flex gap-16 md:gap-32 pr-16 md:pr-32 shrink-0 items-center opacity-30 grayscale hover:grayscale-0 transition-all duration-300">
+                  <span className="text-2xl font-semibold font-sans tracking-tight cursor-default">Datadog</span>
+                  <span className="text-2xl font-semibold font-sans tracking-tight cursor-default">PagerDuty</span>
+                  <span className="text-2xl font-bold font-sans tracking-tight cursor-default">splunk</span>
+                  <span className="text-2xl font-bold font-sans tracking-wider cursor-default">AWS</span>
+                  <span className="text-2xl font-bold font-sans tracking-tight text-[#ff6b00] cursor-default">Cloudflare</span>
+                  <span className="text-2xl font-semibold font-sans tracking-tight cursor-default">kubernetes</span>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section id="product" className="mt-36 pt-16 border-t border-gray-100">
+          <div className="text-center max-w-3xl mx-auto mb-20">
+            <div className="text-[#ff6b00] text-xs font-bold tracking-[0.15em] uppercase mb-6">Built for Clarity</div>
+            <h2 className="text-4xl md:text-[3.5rem] leading-[1.1] font-serif font-bold text-black mb-8">
+              The way incident response should&apos;ve worked from the start
+            </h2>
+            <p className="text-gray-500 text-lg md:text-xl font-medium">
+              A streamlined workflow where engineers always know what&apos;s next, what&apos;s fixed, and what matters.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Feature 1 */}
+            <div className="bg-[#fafafa] rounded-3xl p-8 border border-gray-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex flex-col items-center text-center">
+              <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-10 space-y-3">
+                <div className="flex justify-between items-center bg-gray-50 rounded-xl p-3.5 border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-[4px] bg-[#ff6b00]/10 flex items-center justify-center"><div className="w-2 h-2 rounded-full bg-[#ff6b00]"></div></div>
+                    <span className="text-sm font-semibold text-gray-800">Auto-remediation logs (12)</span>
+                  </div>
+                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center bg-gray-50 rounded-xl p-3.5 border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-[4px] bg-blue-100 flex items-center justify-center"><div className="w-2 h-2 rounded-full bg-blue-500"></div></div>
+                    <span className="text-sm font-semibold text-gray-800">Recent health-checks (4)</span>
+                  </div>
+                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold font-serif mb-4 text-black">Centralize your infrastructure</h3>
+              <p className="text-gray-500 text-base leading-relaxed">
+                Connect your entire stack in minutes. From cloud providers to monitoring tools, everything lives in one organized space.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="bg-[#fafafa] rounded-3xl p-8 border border-gray-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex flex-col items-center text-center">
+              <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-10">
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                  </div>
+                  <span className="text-[11px] font-bold text-gray-400 tracking-wider">ROOT CAUSE FOUND</span>
+                  <span className="ml-auto text-[11px] text-gray-400 font-medium">1m ago</span>
+                </div>
+                <div className="h-2 w-full bg-gray-100 rounded-full mb-6">
+                  <div className="h-full bg-gray-200 rounded-full w-[65%]"></div>
+                </div>
+                <div className="bg-[#111] text-white rounded-lg py-3 px-4 flex justify-between items-center cursor-pointer hover:bg-black transition-colors">
+                  <span className="text-sm font-semibold">Approve Patch</span>
+                  <span className="bg-white/10 p-1 rounded">
+                     <span className="text-[#ff6b00] text-sm">→</span>
+                  </span>
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold font-serif mb-4 text-black">Share every step clearly</h3>
+              <p className="text-gray-500 text-base leading-relaxed">
+                Auto-generated RCA reports, timeline updates, and Slack notifications that your team (and CTO) actually understand.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="bg-[#fafafa] rounded-3xl p-8 border border-gray-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex flex-col items-center text-center">
+              <div className="w-full h-full min-h-[170px] relative mb-10 mt-2">
+                <div className="absolute right-0 top-0 bg-[#ff6b00] text-white text-xs font-semibold px-4 py-3 rounded-2xl rounded-tr-sm max-w-[85%] text-left shadow-md">
+                  Critical: Database CPU at 98%. App_lag alert scoring...
+                </div>
+                <div className="absolute left-0 top-16 bg-white border border-gray-100 text-gray-800 text-xs p-4 rounded-2xl rounded-tl-sm max-w-[90%] text-left shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                  <div className="font-semibold text-gray-400 mb-1 text-[11px]">NeverDown Bot</div>
+                  <div className="font-medium text-sm">New node provisioned. Traffic re-balancing successful.</div>
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold font-serif mb-4 text-black">Align on every next step</h3>
+              <p className="text-gray-500 text-base leading-relaxed">
+                Maintain full human-in-the-loop control. NeverDown proposes the fix; you decide if it goes live with one click.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Pipeline Section */}
+        <section id="pipeline" className="mt-40">
+          <div className="mb-20 max-w-2xl">
+            <h2 className="text-4xl md:text-[3rem] font-serif font-bold text-black mb-6 leading-tight">
+              The 5-Agent Remediation Pipeline
+            </h2>
+            <p className="text-gray-500 text-xl font-medium">
+              Our proprietary multi-agent architecture ensures every incident is handled with extreme precision and safety protocols.
+            </p>
+          </div>
+
+          <div className="relative">
+            {/* Curving SVGs instead of pure squares */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-6 relative z-10">
+              {[
+                { num: "01", title: "The Sanitizer", desc: "Filters noise and duplicates. Only real threats enter the pipe." },
+                { num: "02", title: "The Detective", desc: "Scours logs, metrics, and traces to find the smoking gun." },
+                { num: "03", title: "The Reasoner", desc: "Simulates potential fixes and evaluates safety impact." },
+                { num: "04", title: "The Verifier", desc: "Tests the proposed patch in isolated environments." },
+                { num: "05", title: "The Publisher", desc: "Deploys the fix and notifies the stakeholders via Slack." },
+              ].map((step, i) => (
+                <div key={i} className="relative group">
+                  <div className="bg-white border border-gray-200 hover:border-gray-300 transition-all shadow-sm hover:shadow-md rounded-2xl p-6 h-full flex flex-col pt-8 duration-300 relative z-10">
+                    <div className="flex items-center justify-between mb-8">
+                      <span className="text-4xl font-serif text-[#ff6b00]/60 group-hover:text-[#ff6b00] transition-colors">{step.num}</span>
+                    </div>
+                    <h4 className="text-xl font-bold font-serif mb-3 text-black">{step.title}</h4>
+                    <p className="text-gray-500 text-sm leading-relaxed">{step.desc}</p>
+                  </div>
+                  
+                  {/* Animated Decorative Lines */}
+                  {i < 4 && i % 2 === 0 && (
+                    <div className="hidden md:block absolute border-gray-200 border-dashed z-0" 
+                         style={{
+                           left: '50%',
+                           top: '50%',
+                           bottom: '-40px', 
+                           right: '-1.5rem',
+                           borderLeftWidth: '2px',
+                           borderBottomWidth: '2px',
+                           borderRightWidth: '2px',
+                           borderBottomLeftRadius: '24px',
+                           borderBottomRightRadius: '24px',
+                         }}>
+                         <div className="absolute right-[-6px] top-[-6px] w-[10px] h-[10px] border-t-2 border-r-2 border-gray-300 transform rotate-[45deg] bg-white z-10"></div>
+                         
+                         <motion.div 
+                           className="absolute w-2.5 h-2.5 bg-[#ff6b00] rounded-full shadow-[0_0_12px_4px_rgba(255,107,0,0.6)] z-20"
+                           animate={{
+                             top: ["0%", "100%", "100%", "0%"],
+                             left: ["-5px", "-5px", "calc(100% - 5px)", "calc(100% - 5px)"],
+                             opacity: [0, 1, 1, 1]
+                           }}
+                           transition={{
+                             duration: 3,
+                             repeat: Infinity,
+                             ease: "linear",
+                             times: [0, 0.4, 0.6, 1],
+                             delay: i * 0.5
+                           }}
+                         />
+                    </div>
+                  )}
+
+                  {i < 4 && i % 2 === 1 && (
+                    <div className="hidden md:block absolute border-gray-200 border-dashed z-0" 
+                         style={{
+                           left: '50%',
+                           bottom: '50%', 
+                           top: '-40px', 
+                           right: '-1.5rem',
+                           borderLeftWidth: '2px',
+                           borderTopWidth: '2px',
+                           borderRightWidth: '2px',
+                           borderTopLeftRadius: '24px',
+                           borderTopRightRadius: '24px',
+                         }}>
+                         <div className="absolute right-[-6px] bottom-[-6px] w-[10px] h-[10px] border-t-2 border-r-2 border-gray-300 transform rotate-[45deg] bg-white z-10"></div>
+                         
+                         <motion.div 
+                           className="absolute w-2.5 h-2.5 bg-[#ff6b00] rounded-full shadow-[0_0_12px_4px_rgba(255,107,0,0.6)] z-20"
+                           animate={{
+                             bottom: ["0%", "100%", "100%", "0%"],
+                             left: ["-5px", "-5px", "calc(100% - 5px)", "calc(100% - 5px)"],
+                             opacity: [0, 1, 1, 1]
+                           }}
+                           transition={{
+                             duration: 3,
+                             repeat: Infinity,
+                             ease: "linear",
+                             times: [0, 0.4, 0.6, 1],
+                             delay: i * 0.5
+                           }}
+                         />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-100 py-20 px-6 md:px-12 mt-28 bg-[#fafafa]">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between gap-16 md:gap-0">
+          <div className="max-w-xs">
+             <div className="font-bold text-2xl tracking-tight mb-6 text-black font-serif">NeverDown</div>
+             <p className="text-gray-500 text-sm leading-relaxed mb-6 font-medium">
+                The intelligent orchestration layer for the modern autonomous enterprise. Built in India.
+             </p>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-12 md:gap-24">
+             <div>
+                <h5 className="text-[11px] font-bold text-black tracking-[0.15em] mb-6 uppercase">Product</h5>
+                <ul className="space-y-4 text-sm text-gray-500 font-medium">
+                   <li><Link href="#" className="hover:text-black transition-colors">Integrations</Link></li>
+                   <li><Link href="#pipeline" className="hover:text-black transition-colors">Pipeline</Link></li>
+                   <li><Link href="#" className="hover:text-black transition-colors">Pricing</Link></li>
+                </ul>
              </div>
-             <AlertTriangle className="w-8 h-8 text-yellow-500" />
+             <div>
+                <h5 className="text-[11px] font-bold text-black tracking-[0.15em] mb-6 uppercase">Company</h5>
+                <ul className="space-y-4 text-sm text-gray-500 font-medium">
+                   <li><Link href="#" className="hover:text-black transition-colors">About</Link></li>
+                   <li><Link href="#" className="hover:text-black transition-colors">Careers</Link></li>
+                   <li><Link href="#" className="hover:text-black transition-colors">Contact</Link></li>
+                </ul>
+             </div>
+             <div>
+                <h5 className="text-[11px] font-bold text-black tracking-[0.15em] mb-6 uppercase">Legal</h5>
+                <ul className="space-y-4 text-sm text-gray-500 font-medium">
+                   <li><Link href="#" className="hover:text-black transition-colors">Privacy</Link></li>
+                   <li><Link href="#" className="hover:text-black transition-colors">Terms</Link></li>
+                   <li><Link href="#" className="hover:text-black transition-colors">Security</Link></li>
+                </ul>
+             </div>
           </div>
-          <div className="space-y-1">
-             <span className="text-5xl font-bold text-white">2</span>
-             <span className="text-gray-400 text-lg ml-2">incidents</span>
-          </div>
-          <div className="mt-4 text-xs text-yellow-500/80 font-medium">
-             Requires human oversight
-          </div>
-        </div>
-
-        {/* Today's Stats Card */}
-        <div className="bg-[#111827] border border-[#1f2937] rounded-xl p-6">
-           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">TODAY'S STATS</div>
-           <div className="flex items-end gap-8">
-              <div>
-                 <div className="text-4xl font-bold text-white">14</div>
-                 <div className="text-sm text-gray-500 mt-1">Detected</div>
-              </div>
-              <div className="h-10 w-[1px] bg-[#1f2937]"></div>
-              <div>
-                 <div className="text-4xl font-bold text-green-500">12</div>
-                 <div className="text-sm text-gray-500 mt-1">Fixed</div>
-              </div>
-           </div>
-           <div className="mt-4 flex items-center gap-1 text-xs text-green-500 font-medium">
-              <Activity className="w-3 h-3" />
-              +12% vs yesterday
-           </div>
-        </div>
-
-        {/* Auto-Fix Rate Card */}
-        <div className="bg-[#111827] border border-[#1f2937] rounded-xl p-6">
-           <div className="flex justify-between items-start mb-6">
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">AUTO-FIX RATE</div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/20 text-green-500 border border-green-500/20">High Efficiency</span>
-           </div>
-           
-           <div className="flex items-end gap-1 mb-2">
-              <span className="text-5xl font-bold text-white">87</span>
-              <span className="text-xl text-gray-400 mb-1">%</span>
-           </div>
-           
-           <div className="w-full h-1.5 bg-[#1f2937] rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-blue-500 to-green-400 w-[87%] rounded-full"></div>
-           </div>
-        </div>
-      </div>
-
-      {/* Recent Activity Section */}
-      <div className="bg-[#111827] border border-[#1f2937] rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-[#1f2937] flex justify-between items-center bg-[#1f2937]/30">
-           <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-gray-400" />
-              <h3 className="font-semibold text-sm tracking-wide">RECENT ACTIVITY</h3>
-           </div>
-           <button className="text-xs text-blue-400 hover:text-blue-300 font-medium">View All Logs</button>
         </div>
         
-        <div className="divide-y divide-[#1f2937]">
-           {/* CI Failure Item */}
-           <div className="p-4 flex items-center gap-4 hover:bg-[#1f2937]/30 transition-colors">
-              <div className="p-2 rounded bg-yellow-500/10 border border-yellow-500/20">
-                 <AlertTriangle className="w-5 h-5 text-yellow-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                 <div className="flex items-center gap-3">
-                    <span className="font-medium text-white truncate">CI Failure detected in pipeline #402</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#1f2937] text-gray-400 border border-[#374151]">ID: inc-4921</span>
-                 </div>
-                 <div className="text-sm text-gray-500 mt-0.5">10:42 AM • Analyzing build logs for root cause</div>
-              </div>
-              <button className="px-3 py-1.5 text-xs font-medium bg-blue-600/10 text-blue-400 border border-blue-600/20 rounded hover:bg-blue-600/20">
-                 • Verifying
-              </button>
-           </div>
-
-           {/* DB Query Timeout Item */}
-           <div className="p-4 flex items-center gap-4 hover:bg-[#1f2937]/30 transition-colors">
-              <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20">
-                 <Zap className="w-5 h-5 text-blue-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                 <div className="flex items-center gap-3">
-                    <span className="font-medium text-white truncate">DB Query Timeout - High Latency</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#1f2937] text-gray-400 border border-[#374151]">ID: inc-4920</span>
-                 </div>
-                 <div className="text-sm text-gray-500 mt-0.5">10:15 AM • Optimizing index usage on users_table</div>
-              </div>
-              <button className="px-3 py-1.5 text-xs font-medium bg-blue-600/10 text-blue-400 border border-blue-600/20 rounded hover:bg-blue-600/20">
-                 • Refining
-              </button>
-           </div>
-
-           {/* Redis Connection Item */}
-           <div className="p-4 flex items-center gap-4 hover:bg-[#1f2937]/30 transition-colors">
-              <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
-                 <CheckCircle className="w-5 h-5 text-green-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                 <div className="flex items-center gap-3">
-                    <span className="font-medium text-white truncate">Redis Connection Lost</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#1f2937] text-gray-400 border border-[#374151]">ID: inc-4919</span>
-                 </div>
-                 <div className="text-sm text-gray-500 mt-0.5">09:55 AM • Instance rebooted and reconnected successfully</div>
-              </div>
-              <button className="px-3 py-1.5 text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20 rounded hover:bg-green-500/20">
-                 Resolved
-              </button>
+        <div className="max-w-6xl mx-auto mt-20 pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-gray-500 font-medium">
+           <div>© 2024 NeverDown Inc. All rights reserved.</div>
+           <div className="flex items-center gap-8">
+              <Link href="#" className="hover:text-black transition-colors">Twitter</Link>
+              <Link href="#" className="hover:text-black transition-colors">LinkedIn</Link>
+              <Link href="#" className="hover:text-black transition-colors">GitHub</Link>
            </div>
         </div>
-      </div>
-
-      {/* System Health Status */}
-      <div className="bg-[#111827] border border-[#1f2937] rounded-xl p-6">
-         <h3 className="font-bold text-sm tracking-wide mb-6">SYSTEM HEALTH STATUS</h3>
-         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <HealthIndicator label="Webhook" status="ONLINE" />
-            <HealthIndicator label="Docker" status="ONLINE" />
-            <HealthIndicator label="LLM API" status="ONLINE" />
-            <HealthIndicator label="GitHub" status="ONLINE" />
-         </div>
-      </div>
-
-      {/* Connection / Deploy Action */}
-      <div className="mt-8 flex justify-end">
-          {!isConnected ? (
-            <button
-              onClick={handleConnect}
-              className="flex items-center gap-2 px-6 py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-all"
-            >
-              <Github className="w-5 h-5" />
-              Connect GitHub Repo
-            </button>
-          ) : (
-             <button
-                onClick={() => setIsDeployModalOpen(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20"
-             >
-                <Zap className="w-5 h-5" />
-                Trigger Manual Incident
-             </button>
-          )}
-      </div>
-
-      <DeployModal
-        isOpen={isDeployModalOpen}
-        onClose={() => setIsDeployModalOpen(false)}
-        onDeploy={handleDeploy}
-      />
+      </footer>
     </div>
   );
-}
-
-function HealthIndicator({ label, status }: { label: string, status: string }) {
-   return (
-      <div className="flex items-center justify-between p-3 rounded bg-[#1f2937]/30 border border-[#374151]">
-         <div className="flex items-center gap-3">
-            <Shield className="w-4 h-4 text-gray-400" />
-            <span className="text-sm font-medium text-gray-300">{label}</span>
-         </div>
-         <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-            <span className="text-[10px] font-bold text-green-500 tracking-wide">{status}</span>
-         </div>
-      </div>
-   );
 }

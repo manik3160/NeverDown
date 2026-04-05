@@ -111,5 +111,7 @@ async def github_callback(code: str, state: str, request: Request):
         else:
             logger.warning("Failed to get user info", status=user_response.status_code)
             
+    # Clean trailing slash if present
+    base_frontend = settings.FRONTEND_URL.rstrip("/")
     # Redirect to frontend with token
-    return RedirectResponse(url=f"{settings.FRONTEND_URL}?token={access_token}&username={username}")
+    return RedirectResponse(url=f"{base_frontend}/dashboard?token={access_token}&username={username}")
