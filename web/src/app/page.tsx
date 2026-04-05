@@ -318,7 +318,7 @@ export default function LandingPage() {
         </div>
         
         <div className="max-w-6xl mx-auto mt-20 pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-gray-500 font-medium">
-           <div>© 2024 NeverDown Inc. All rights reserved.</div>
+           <div>© 2026 NeverDown Inc. All rights reserved.</div>
            <div className="flex items-center gap-8">
               <Link href="#" className="hover:text-black transition-colors">Twitter</Link>
               <Link href="#" className="hover:text-black transition-colors">LinkedIn</Link>

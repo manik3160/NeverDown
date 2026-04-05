@@ -35,19 +35,7 @@ export default function Sidebar() {
           Incident Logs
         </Link>
         
-        <Link 
-          href="/auto-remediation" 
-          className={`flex items-center py-2 text-[15px] font-medium transition-colors w-full ${isActive("/auto-remediation")}`}
-        >
-          Auto-Remediation
-        </Link>
 
-        <Link 
-          href="/health" 
-          className={`flex items-center py-2 text-[15px] font-medium transition-colors w-full ${isActive("/health")}`}
-        >
-          System Health
-        </Link>
 
         <Link 
           href="/settings" 

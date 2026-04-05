@@ -1,10 +1,71 @@
 "use client";
 
-import { ChevronDown, AlertTriangle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronDown, AlertTriangle, Github, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { getApiBase } from "@/lib/api";
+import DeployModal from "@/components/DeployModal";
+
+const API_BASE = getApiBase();
 
 export default function Dashboard() {
   const router = useRouter();
+  const [isConnected, setIsConnected] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    const user = params.get("username");
+
+    if (token) {
+      localStorage.setItem("github_token", token);
+      if (user) localStorage.setItem("github_username", user);
+      setIsConnected(true);
+      setUsername(user);
+      window.history.replaceState({}, document.title, "/dashboard");
+    } else {
+      const storedToken = localStorage.getItem("github_token");
+      if (storedToken) {
+        setIsConnected(true);
+        setUsername(localStorage.getItem("github_username"));
+      }
+    }
+  }, []);
+
+  const handleConnect = () => {
+    if (isConnected) return;
+    window.location.href = `${API_BASE}/auth/github/login`;
+  };
+
+  const handleDeploy = async (repoUrl: string, title: string, logs: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/incidents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title,
+          description: `Automated fix request for ${repoUrl}`,
+          severity: "medium",
+          source: "manual",
+          logs: logs || "Monitoring via webhooks",
+          metadata: {
+            repository: { url: repoUrl, branch: "main" },
+            triggered_by: username || "web-ui",
+          },
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create incident");
+      const incident = await response.json();
+      setIsDeployModalOpen(false);
+      // Let the page naturally pick it up if they refresh, or push them to Incidents
+      router.push("/incidents");
+    } catch (error) {
+      console.error("Failed to create incident:", error);
+    }
+  };
 
   return (
     <div className="bg-[#fafafa] min-h-screen p-10 font-sans text-gray-900">
@@ -17,13 +78,27 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-6">
                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  <span className="text-xs font-bold text-gray-500 tracking-widest uppercase">System Live</span>
+                  <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                  <span className="text-[10px] font-extrabold text-gray-400 tracking-[0.1em] uppercase">System Live</span>
                </div>
-               <button className="flex items-center gap-2 bg-[#1a1a1a] text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-black transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 shadow-md">
-                  Export Report
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-               </button>
+               
+               {!isConnected ? (
+                  <button onClick={handleConnect} className="flex items-center gap-2 bg-[#ff6b00] text-white px-6 py-2.5 rounded-lg text-sm font-bold tracking-wide hover:bg-orange-600 transition-colors shadow-md">
+                     <Github className="w-4 h-4" />
+                     Connect GitHub
+                  </button>
+               ) : (
+                  <div className="flex gap-3">
+                     <button onClick={() => setIsDeployModalOpen(true)} className="flex items-center gap-2 bg-[#1a1a1a] text-white px-5 py-2.5 rounded-lg text-[13px] tracking-wide font-bold hover:bg-black transition-colors shadow-md">
+                        <Zap className="w-4 h-4 text-[#ff6b00]" strokeWidth={2.5} />
+                        Trigger Incident
+                     </button>
+                     <button className="flex items-center gap-2 bg-white text-gray-700 border border-gray-200 px-5 py-2.5 rounded-lg text-[13px] font-bold tracking-wide hover:bg-gray-50 transition-colors shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-gray-200">
+                        Export Report
+                        <ChevronDown className="w-4 h-4 text-gray-400" strokeWidth={2.5} />
+                     </button>
+                  </div>
+               )}
             </div>
          </div>
 
@@ -171,6 +246,12 @@ export default function Dashboard() {
             </div>
          </div>
       </div>
+      
+      <DeployModal
+        isOpen={isDeployModalOpen}
+        onClose={() => setIsDeployModalOpen(false)}
+        onDeploy={handleDeploy}
+      />
     </div>
   );
 }
