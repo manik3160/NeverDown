@@ -35,8 +35,9 @@ export default function ActivePipelines() {
       try {
         const response = await fetch(`${API_BASE}/incidents`);
         const data = await response.json();
+        const list = Array.isArray(data) ? data : [];
         // Filter for active incidents (not resolved/completed)
-        const active = data.filter((i: Incident) => 
+        const active = list.filter((i: Incident) => 
           i.status !== "resolved" && i.status !== "completed"
         );
         setIncidents(active);
@@ -191,7 +192,7 @@ function PipelineCard({ incident, isTerminalExpanded, onToggleTerminal }: {
         {isTerminalExpanded && (
            <div className="p-4 font-mono text-xs text-gray-400 h-48 overflow-y-auto space-y-1 bg-black/50">
               <div className="text-green-500/50">$ initiating autonomous_agent --mode=reasoner</div>
-              {incident.timeline.slice().reverse().map((event: any, i: number) => (
+              {(incident.timeline || []).slice().reverse().map((event: any, i: number) => (
                  <div key={i} className="flex gap-2">
                     <span className="text-blue-500/50">[{new Date(event.timestamp).toLocaleTimeString()}]</span>
                     <span>{event.state}: {JSON.stringify(event.details || event.message || "")}</span>

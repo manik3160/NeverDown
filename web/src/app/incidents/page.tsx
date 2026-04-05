@@ -32,7 +32,7 @@ export default function IncidentHistory() {
   useEffect(() => {
     fetch(`${API_BASE}/incidents`)
       .then(res => res.json())
-      .then(data => setIncidents(data))
+      .then(data => setIncidents(Array.isArray(data) ? data : []))
       .catch(err => console.error("Failed to fetch incidents", err));
   }, []);
 

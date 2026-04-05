@@ -95,3 +95,5 @@ Thumbs.db
 
 # Logs
 *.txt
+.vercel
+.env*.local
