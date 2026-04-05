@@ -31,12 +31,14 @@ class IncidentStatus(str, Enum):
     MONITORING = "MONITORING"  # Dormant sentinel - watching for CI failures
     PROCESSING = "processing"  # General processing state
     SANITIZING = "sanitizing"
+    DETECTING = "detecting"  # Detective agent analyzing failure
     ANALYZING = "analyzing"
     REASONING = "reasoning"
     VERIFYING = "verifying"
     CREATING_PR = "creating_pr"
     PR_CREATED = "pr_created"  # Successfully created PR
     AWAITING_REVIEW = "awaiting_review"  # PR created, waiting for human feedback
+    REFINING = "refining"  # Feedback loop - re-generating fix
     RESOLVED = "resolved"  # Human approved the fix
     COMPLETED = "completed"
     FAILED = "failed"
@@ -70,6 +72,8 @@ class IncidentMetadata(BaseModel):
     workflow_name: Optional[str] = Field(default=None, description="CI workflow name if applicable")
     job_url: Optional[str] = Field(default=None, description="Link to failed job")
     alert_id: Optional[str] = Field(default=None, description="External alert ID")
+    github_run_id: Optional[str] = Field(default=None, description="GitHub Actions run ID")
+    github_event_type: Optional[str] = Field(default=None, description="GitHub webhook event type")
     tags: List[str] = Field(default_factory=list, description="Optional tags for categorization")
 
 

@@ -11,6 +11,7 @@ from uuid import UUID
 
 from agents.base_agent import AgentResult, BaseAgent
 from agents.agent_3_verifier.sandbox_runner import SandboxRunner, SandboxResult
+from agents.agent_3_verifier.env_generator import EnvGenerator
 from config.logging_config import get_logger
 from config.settings import get_settings
 from core.exceptions import SandboxError, VerificationFailedError
@@ -117,6 +118,9 @@ class VerifierAgent(BaseAgent[VerifierInput, VerifierOutput]):
                     ),
                     metadata={"status": "patch_apply_failed"},
                 )
+            
+            # Inject fake credentials for tests that expect .env files
+            EnvGenerator.generate(work_dir)
             
             # Detect test framework and run tests
             test_results = await self._run_tests(work_dir)

@@ -1,5 +1,6 @@
 """Reasoner agent - LLM-powered root cause analysis for NeverDown."""
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 from uuid import UUID
@@ -79,6 +80,16 @@ class ReasonerAgent(BaseAgent[ReasonerInput, ReasonerOutputData]):
         last_error = None
         
         for attempt in range(max_retries):
+            # Exponential backoff between retries
+            if attempt > 0:
+                backoff_delay = self.settings.RETRY_BACKOFF_BASE ** attempt
+                self.logger.info(
+                    "Retrying with backoff",
+                    attempt=attempt + 1,
+                    delay_seconds=backoff_delay,
+                )
+                await asyncio.sleep(backoff_delay)
+            
             try:
                 # Call LLM
                 response = await self._call_llm(system_prompt, analysis_prompt)
@@ -320,3 +331,132 @@ class ReasonerAgent(BaseAgent[ReasonerInput, ReasonerOutputData]):
                 raise LLMError(f"OpenAI API error: {e.response.text}", "openai")
             except Exception as e:
                 raise LLMError(f"OpenAI API call failed: {str(e)}", "openai")
+
+    async def reason_with_feedback(
+        self,
+        input_data: ReasonerInput,
+        feedback_text: str,
+        previous_patch_diff: str = "",
+        incident_id: Optional[UUID] = None,
+    ) -> AgentResult[ReasonerOutputData]:
+        """Re-run reasoning with user feedback context.
+        
+        This is the dedicated refinement method called during the
+        feedback loop. It builds a refinement-specific prompt that
+        includes the user's feedback and the previous patch attempt.
+        
+        Args:
+            input_data: Standard reasoner input
+            feedback_text: User's feedback for refinement
+            previous_patch_diff: Diff from previous attempt
+            incident_id: Incident ID for logging
+            
+        Returns:
+            AgentResult with refined patch
+        """
+        incident_id = incident_id or input_data.incident_id
+        
+        # Build refinement-specific prompt
+        prompt_builder = PromptBuilder(input_data.sanitized_repo_path)
+        analysis_prompt = prompt_builder.build_refinement_prompt(
+            input_data.detective_report,
+            feedback_text,
+            previous_patch_diff,
+        )
+        system_prompt = prompt_builder.get_system_prompt()
+        
+        # Initialize patch generator
+        patch_generator = PatchGenerator(input_data.sanitized_repo_path)
+        
+        # Attempt LLM call with retries
+        max_retries = self.settings.MAX_RETRIES
+        last_error = None
+        
+        for attempt in range(max_retries):
+            if attempt > 0:
+                backoff_delay = self.settings.RETRY_BACKOFF_BASE ** attempt
+                self.logger.info(
+                    "Refinement retry with backoff",
+                    attempt=attempt + 1,
+                    delay_seconds=backoff_delay,
+                )
+                await asyncio.sleep(backoff_delay)
+            
+            try:
+                response = await self._call_llm(system_prompt, analysis_prompt)
+                parsed = patch_generator.parse_llm_response(response["content"])
+                
+                if parsed.parse_errors:
+                    analysis_prompt = prompt_builder.build_retry_prompt(
+                        analysis_prompt,
+                        response["content"],
+                        f"Parse errors: {', '.join(parsed.parse_errors)}",
+                    )
+                    continue
+                
+                if not parsed.diff:
+                    analysis_prompt = prompt_builder.build_retry_prompt(
+                        analysis_prompt,
+                        response["content"],
+                        "No diff/patch provided in response",
+                    )
+                    continue
+                
+                patch_result = patch_generator.validate_diff(parsed.diff)
+                
+                if not patch_result.is_valid:
+                    analysis_prompt = prompt_builder.build_retry_prompt(
+                        analysis_prompt,
+                        response["content"],
+                        f"Invalid diff: {', '.join(patch_result.validation_errors)}",
+                    )
+                    continue
+                
+                # Build output (no confidence gate on refinement — user asked for it)
+                normalized_diff = patch_generator.normalize_diff(parsed.diff)
+                
+                patch = Patch(
+                    incident_id=incident_id,
+                    diff=normalized_diff,
+                    reasoning=parsed.explanation,
+                    confidence=parsed.confidence,
+                    assumptions=parsed.assumptions,
+                    files_changed=patch_result.files,
+                    token_usage=response.get("usage"),
+                )
+                
+                output = ReasonerOutput(
+                    incident_id=incident_id,
+                    patch=patch,
+                    root_cause_summary=parsed.root_cause_summary,
+                    detailed_explanation=parsed.explanation,
+                    confidence=parsed.confidence,
+                    assumptions=parsed.assumptions,
+                    risk_assessment=parsed.risks,
+                    token_usage=response.get("usage", {}),
+                    llm_model=self.settings.LLM_MODEL,
+                )
+                
+                return AgentResult.ok(
+                    ReasonerOutputData(output=output),
+                    metadata={
+                        "confidence": parsed.confidence,
+                        "files_changed": len(patch_result.files),
+                        "refinement": True,
+                        "feedback_used": feedback_text[:100],
+                    },
+                )
+            
+            except LLMError as e:
+                last_error = e
+                self.logger.error("LLM call failed during refinement", error=str(e))
+                continue
+            except Exception as e:
+                last_error = e
+                self.logger.exception("Unexpected error in refinement", error=str(e))
+                continue
+        
+        return AgentResult.fail(
+            f"Refinement failed after {max_retries} attempts: {str(last_error)}",
+            metadata={"attempts": max_retries, "refinement": True},
+        )

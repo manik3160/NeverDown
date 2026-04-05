@@ -334,6 +334,56 @@ Please provide a new response that addresses this issue. Make sure:
 """
         return retry_section
     
+    def build_refinement_prompt(
+        self,
+        detective_report,
+        feedback_text: str,
+        previous_patch_diff: str = "",
+    ) -> str:
+        """Build a refinement prompt incorporating user feedback.
+        
+        This is used during the feedback loop when a user requests
+        changes on a PR. Instead of injecting feedback into detective
+        evidence, this creates a dedicated refinement prompt.
+        
+        Args:
+            detective_report: The original detective report
+            feedback_text: User's feedback for refinement
+            previous_patch_diff: The diff from the previous attempt
+            
+        Returns:
+            Formatted refinement prompt
+        """
+        # Start with standard analysis context
+        base_prompt = self.build_analysis_prompt(detective_report)
+        
+        refinement_section = f"""
+# ⚠️ REFINEMENT REQUEST
+
+A previous fix was generated but the human reviewer has requested changes.
+You MUST address their feedback in your new fix.
+
+## User Feedback
+{feedback_text}
+
+## Previous Patch Attempt
+```diff
+{previous_patch_diff[:3000] if previous_patch_diff else "No previous patch available"}
+```
+
+## Instructions
+1. Carefully read the user's feedback above
+2. Understand what was wrong with the previous attempt
+3. Generate a NEW, improved fix that addresses the feedback
+4. Keep what was correct from the previous attempt
+5. Your response must follow the same format as before
+
+---
+
+{base_prompt}
+"""
+        return refinement_section
+    
     def get_system_prompt(self) -> str:
         """Get the system prompt for the LLM."""
         return self.SYSTEM_PROMPT

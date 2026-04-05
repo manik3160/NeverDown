@@ -21,6 +21,7 @@ from database.repositories.audit_repo import AuditRepository
 from database.repositories.incident_repo import IncidentRepository
 from database.repositories.patch_repo import PatchRepository
 from models.incident import IncidentStatus
+from services.event_bus import PipelineEvent, event_bus
 from services.git_service import GitService
 
 logger = get_logger(__name__)
@@ -183,6 +184,14 @@ class Orchestrator:
                 f"PR created: {context.pull_request.pr_url if context.pull_request else 'unknown'} - awaiting human review",
             )
             
+            # Publish completion event
+            await self._publish_event(
+                context.incident_id,
+                PipelineEvent.PIPELINE_COMPLETE,
+                IncidentStatus.AWAITING_REVIEW.value,
+                "Pipeline completed successfully",
+            )
+            
             return True
         
         except Exception as e:
@@ -192,6 +201,13 @@ class Orchestrator:
                 context.incident_id,
                 IncidentStatus.FAILED,
                 f"Orchestration error: {str(e)[:200]}",
+            )
+            
+            await self._publish_event(
+                context.incident_id,
+                PipelineEvent.PIPELINE_FAILED,
+                IncidentStatus.FAILED.value,
+                "Pipeline execution failed",
             )
             
             return False
@@ -338,7 +354,7 @@ class Orchestrator:
         """Run the Sanitizer agent."""
         await self._update_status(
             context.incident_id,
-            IncidentStatus.PROCESSING,
+            IncidentStatus.SANITIZING,
             "Sanitizing repository",
         )
         
@@ -363,7 +379,7 @@ class Orchestrator:
         """Run the Detective agent."""
         await self._update_status(
             context.incident_id,
-            IncidentStatus.PROCESSING,
+            IncidentStatus.DETECTING,
             "Analyzing failure",
         )
         
@@ -397,7 +413,7 @@ class Orchestrator:
         """Run the Reasoner agent."""
         await self._update_status(
             context.incident_id,
-            IncidentStatus.PROCESSING,
+            IncidentStatus.REASONING,
             "Generating fix with LLM",
         )
         
@@ -432,7 +448,7 @@ class Orchestrator:
         """Run the Verifier agent."""
         await self._update_status(
             context.incident_id,
-            IncidentStatus.PROCESSING,
+            IncidentStatus.VERIFYING,
             "Verifying fix in sandbox",
         )
         
@@ -489,7 +505,7 @@ class Orchestrator:
         """Run the Publisher agent."""
         await self._update_status(
             context.incident_id,
-            IncidentStatus.PROCESSING,
+            IncidentStatus.CREATING_PR,
             "Creating pull request",
         )
         
@@ -513,6 +529,31 @@ class Orchestrator:
         
         return True
     
+    async def _publish_event(
+        self,
+        incident_id: UUID,
+        event_type: str,
+        stage: str,
+        detail: str,
+    ) -> None:
+        """Publish an event to the live monitoring bus."""
+        progress_map = {
+            "pending": 0, "monitoring": 0, "processing": 5,
+            "sanitizing": 10, "detecting": 30, "reasoning": 55,
+            "verifying": 75, "creating_pr": 90, "refining": 40,
+            "pr_created": 100, "awaiting_review": 100,
+            "resolved": 100, "completed": 100, "failed": 100
+        }
+        progress = progress_map.get(stage.lower(), 0)
+        
+        event = PipelineEvent(
+            event_type=event_type,
+            stage=stage,
+            detail=detail,
+            progress_pct=progress,
+        )
+        await event_bus.publish(incident_id, event)
+
     async def _update_status(
         self,
         incident_id: UUID,
@@ -569,6 +610,18 @@ class Orchestrator:
                     from_state=old_status.value if hasattr(old_status, 'value') else str(old_status),
                     to_state=status.value,
                     metadata={"detail": detail},
+                )
+                
+                # Emit live event
+                event_type = PipelineEvent.STAGE_FAILED if status == IncidentStatus.FAILED else PipelineEvent.STAGE_STARTED
+                if status in (IncidentStatus.RESOLVED, IncidentStatus.COMPLETED):
+                    event_type = PipelineEvent.STAGE_COMPLETED
+                    
+                await self._publish_event(
+                    incident_id,
+                    event_type,
+                    status.value if hasattr(status, 'value') else str(status),
+                    detail,
                 )
         except Exception as e:
             # Status update failures should not halt the pipeline
@@ -669,37 +722,38 @@ class Orchestrator:
             # Fetch previous patch for context
             previous_patch_diff = await self.incident_repo.get_previous_patch_diff(incident_id)
             
-            # Build refinement prompt for Reasoner
-            from agents.agent_2_reasoner.prompt_builder import PromptBuilder
-            prompt_builder = PromptBuilder(context.sanitized_repo_path)
-            
             # Create refinement input for reasoner
             await self._update_status(
                 incident_id,
-                IncidentStatus.PROCESSING,
+                IncidentStatus.REFINING,
                 "Generating refined fix with user feedback",
             )
             
             # Run reasoner with refinement context
             from agents.agent_2_reasoner.reasoner import ReasonerInput
             
-            # Add feedback context to detective report evidence
-            context.detective_report.evidence.append(
-                f"USER FEEDBACK (refinement): {feedback_text}"
+            reasoner_input = ReasonerInput(
+                incident_id=incident_id,
+                sanitized_repo_path=context.sanitized_repo_path,
+                detective_report=context.detective_report,
             )
-            if previous_patch_diff:
-                context.detective_report.evidence.append(
-                    f"PREVIOUS PATCH ATTEMPT:\n```diff\n{previous_patch_diff[:2000]}\n```"
-                )
             
-            reasoner_success = await self._run_reasoner(context)
-            if not reasoner_success:
+            result = await self.reasoner.reason_with_feedback(
+                input_data=reasoner_input,
+                feedback_text=feedback_text,
+                previous_patch_diff=previous_patch_diff,
+                incident_id=incident_id,
+            )
+            
+            if not result.success:
                 await self._update_status(
                     incident_id,
                     IncidentStatus.FAILED,
                     "Refinement reasoner failed",
                 )
                 return False
+                
+            context.reasoner_output = result.output.output
             
             # Run verifier
             verifier_success = await self._run_verifier(context)
@@ -713,7 +767,7 @@ class Orchestrator:
             # Run publisher with existing branch (update PR, don't create new)
             await self._update_status(
                 incident_id,
-                IncidentStatus.PROCESSING,
+                IncidentStatus.CREATING_PR,
                 "Updating existing PR with refined fix",
             )
             

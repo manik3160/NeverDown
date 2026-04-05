@@ -362,6 +362,64 @@ class GitHubClient:
                 labels=[PRLabel(name=l["name"]) for l in data.get("labels", [])],
             )
     
+    async def update_pull_request(
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        title: Optional[str] = None,
+        body: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update an existing pull request.
+        
+        Used during refinement to update the PR title/body with
+        the latest fix information.
+        
+        IMPORTANT: This updates metadata only. It does NOT merge the PR.
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            pr_number: PR number to update
+            title: New title (optional)
+            body: New body (optional)
+            
+        Returns:
+            GitHub API response dict
+        """
+        url = f"{self.BASE_URL}/repos/{owner}/{repo}/pulls/{pr_number}"
+        
+        payload: Dict[str, Any] = {}
+        if title:
+            payload["title"] = title
+        if body:
+            payload["body"] = body
+        
+        if not payload:
+            logger.warning("No fields to update on PR", pr_number=pr_number)
+            return {}
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.patch(
+                url,
+                headers=self.headers,
+                json=payload,
+            )
+            
+            if response.status_code != 200:
+                raise GitHubAPIError(
+                    f"Failed to update PR: {response.text}",
+                    status_code=response.status_code,
+                )
+            
+            logger.info(
+                "Updated pull request",
+                pr_number=pr_number,
+                updated_fields=list(payload.keys()),
+            )
+            
+            return response.json()
+    
     def parse_repo_url(self, url: str) -> tuple[str, str]:
         """Parse owner and repo from GitHub URL.
         

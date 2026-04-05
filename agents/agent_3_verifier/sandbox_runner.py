@@ -161,7 +161,10 @@ class SandboxRunner:
             "--memory", self.config.memory_limit,
             f"--cpus={self.config.cpu_limit}",
             "--pids-limit", "100",  # Limit processes
-            "-v", f"{repo_path}:{self.config.work_dir}:rw",
+            "-v", f"{repo_path}:{self.config.work_dir}:ro",
+            "--tmpfs", "/tmp:rw,exec,size=256m",
+            "--tmpfs", f"{self.config.work_dir}/.cache:rw,size=128m",
+            "--tmpfs", f"{self.config.work_dir}/__pycache__:rw,size=64m",
             "-w", self.config.work_dir,
         ]
         
