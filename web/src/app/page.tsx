@@ -42,22 +42,28 @@ export default function LandingPage() {
 
       <main className="max-w-6xl mx-auto px-6 pt-20 pb-24">
         {/* Hero Section */}
-        <section className="text-center max-w-4xl mx-auto flex flex-col items-center">
-          <h1 className="text-5xl md:text-7xl font-serif tracking-tight leading-[1.1] mb-6">
-            <span className="text-black font-bold block">Autonomous Incident</span>
-            <span className="text-black font-bold block mb-2">Remediation.</span>
-            <span className={`font-bold transition-colors duration-500 ${isScrolled ? 'text-[#ff6b00]' : 'text-gray-400'}`}>Fixed before you wake up.</span>
-          </h1>
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-8 items-center pt-8 pb-16 lg:pt-4">
+          <div className="text-center lg:text-left flex flex-col items-center lg:items-start lg:pr-8">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif tracking-tight leading-[1.1] mb-6">
+              <span className="text-black font-bold block">Autonomous Incident</span>
+              <span className="text-black font-bold block mb-2">Remediation.</span>
+              <span className={`font-bold transition-colors duration-500 ${isScrolled ? 'text-[#ff6b00]' : 'text-gray-400'}`}>Fixed before you wake up.</span>
+            </h1>
+            
+            <p className="text-lg md:text-xl text-gray-500 max-w-xl mx-auto lg:mx-0 mb-10 leading-relaxed font-medium">
+              A modern SRE platform that replaces manual on-call shifts, noisy 
+              alerts, and lost sleep with one clean, autonomous engine your team 
+              can rely on every single night.
+            </p>
+            
+            <Link href="/dashboard" className="bg-[#111] text-white px-8 py-4 rounded-lg text-lg font-medium hover:bg-black transition-colors flex items-center gap-3 shadow-xl shadow-black/5">
+              Try it Now <span className="bg-[#ff6b00] text-white w-6 h-6 flex items-center justify-center rounded text-sm">→</span>
+            </Link>
+          </div>
           
-          <p className="text-lg md:text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-            A modern SRE platform that replaces manual on-call shifts, noisy 
-            alerts, and lost sleep with one clean, autonomous engine your team 
-            can rely on every single night.
-          </p>
-          
-          <Link href="/dashboard" className="bg-[#111] text-white px-8 py-4 rounded-lg text-lg font-medium hover:bg-black transition-colors flex items-center gap-3 shadow-xl shadow-black/5">
-            Try it Now <span className="bg-[#ff6b00] text-white w-6 h-6 flex items-center justify-center rounded text-sm">→</span>
-          </Link>
+          <div className="relative w-full h-[400px] lg:h-[500px] rounded-2xl shadow-xl overflow-hidden mt-8 lg:mt-0 ring-1 ring-gray-100 border border-gray-200 bg-white">
+            <HeroVisual />
+          </div>
         </section>
 
         {/* Integration Logos */}
@@ -320,6 +326,138 @@ export default function LandingPage() {
            </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function HeroVisual() {
+  return (
+    <div className="absolute inset-0 bg-white overflow-hidden select-none">
+      {/* Background Grid */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000008_1px,transparent_1px),linear-gradient(to_bottom,#00000008_1px,transparent_1px)] bg-[size:40px_40px]" />
+      
+      {/* Container to scale/position the entire graphic */}
+      <div className="absolute inset-0 left-[-20%] md:left-[-10%] lg:-left-4 lg:-top-12 scale-[0.6] md:scale-75 lg:scale-[0.8] origin-center lg:origin-top-left pointer-events-none">
+          
+        {/* Alert block */}
+        <motion.div 
+          className="absolute top-16 left-16 bg-red-50 border border-red-200 text-red-800 font-mono text-sm px-6 py-4 shadow-lg shadow-red-500/5 z-20 rounded"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+        >
+          [ALERT] 502 Bad Gateway detected
+        </motion.div>
+
+        {/* Orange trailing line */}
+        <svg className="absolute top-[120px] left-[84px] w-[60px] h-[50px] overflow-visible z-10" fill="none">
+          <path d="M 0 0 V 50 H 40" stroke="#ffedd5" strokeWidth="2" />
+          <motion.path d="M 0 0 V 50 H 40" stroke="#ff6b00" strokeWidth="2"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          />
+        </svg>
+
+        {/* NeverDown Remediation Panel */}
+        <div className="absolute top-[170px] left-[124px] rounded-xl border border-gray-200 bg-white/95 backdrop-blur-md pb-6 pl-6 pr-8 pt-5 w-[850px] z-20 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
+          <div className="text-[12px] text-[#ff6b00] font-sans font-bold tracking-widest mb-6 uppercase flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            Autonomous Remediation
+          </div>
+          
+          <div className="flex gap-4">
+            {/* Card 1: Diagnosis */}
+            <div className="flex-1 border border-gray-100 bg-[#fafafa] rounded-xl p-5 shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-black font-semibold text-base font-serif">The Detective</span>
+                </div>
+                <div className="flex items-center gap-2 bg-orange-100 px-2.5 py-1 rounded-md">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#ff6b00] animate-pulse"></div>
+                  <span className="text-[#ff6b00] text-[10px] uppercase font-bold tracking-wider">Tracing Error</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="border border-gray-100 bg-white rounded-lg p-3 relative h-24 shadow-sm">
+                  <div className="text-[10px] text-gray-400 font-mono font-bold mb-2">ERROR RATE</div>
+                  <svg className="absolute bottom-0 left-0 w-full h-[60%] overflow-visible p-1" preserveAspectRatio="none" viewBox="0 0 100 100">
+                      <path d="M 0 80 L 20 75 L 40 40 L 60 10 L 80 50 L 100 30" fill="none" stroke="#ef4444" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+                  </svg>
+                </div>
+                <div className="border border-gray-100 bg-white rounded-lg p-3 relative h-24 shadow-sm overflow-hidden flex flex-col justify-end">
+                  <div className="absolute top-3 left-3 text-[10px] text-gray-400 font-mono font-bold">SCANNING</div>
+                  <div className="font-mono text-[9px] text-gray-400 leading-tight">
+                    <div className="text-black">&gt; grep -R "Timeout"</div>
+                    <div>found 142 anomalies...</div>
+                    <div className="flex items-center">
+                      locating root cause<motion.div animate={{ opacity: [1, 0] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1.5 h-2.5 bg-[#ff6b00] ml-1"></motion.div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Resolution */}
+            <div className="flex-1 border border-gray-100 bg-[#fafafa] rounded-xl p-5 shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-black font-semibold text-base font-serif">The Reasoner</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-100 px-2 py-1 rounded-md">
+                  <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                  <span className="text-blue-600 text-[10px] uppercase font-bold tracking-wider">Running Simulation</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="border border-gray-100 bg-white rounded-lg p-3 relative h-24 shadow-sm">
+                  <div className="text-[10px] text-gray-400 font-mono font-bold mb-2">SYSTEM LOAD</div>
+                  <svg className="absolute bottom-0 left-0 w-full h-[60%] overflow-visible p-1" preserveAspectRatio="none" viewBox="0 0 100 100">
+                      <path d="M 0 30 Q 20 20 40 50 T 80 80 T 100 70" fill="none" stroke="#e5e7eb" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+                      <motion.path d="M 0 30 Q 20 20 40 50 T 80 80 T 100 70" fill="none" stroke="#22c55e" strokeWidth="3" vectorEffect="non-scaling-stroke"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                      />
+                  </svg>
+                </div>
+                <div className="border border-gray-100 bg-white rounded-lg p-3 relative h-24 shadow-sm overflow-hidden flex flex-col items-center justify-center">
+                  <div className="text-xs font-mono font-bold text-gray-400 line-through">max_conns=100</div>
+                  <div className="text-[10px] text-gray-300 font-mono my-1">↓</div>
+                  <div className="text-sm font-mono font-bold text-green-500">max_conns=500</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Publisher Edge */}
+            <div className="w-[110px] border border-gray-100 bg-green-50/30 p-5 rounded-xl rounded-r-none border-r-0 flex flex-col justify-center shadow-sm">
+                <div className="text-center">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3 text-green-600">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <div className="text-[10px] font-bold text-green-600 tracking-wider">DEPLOYED</div>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Aesthetic Orange Blocks Top Right */}
+        <div className="absolute top-12 right-[-20px] w-56 flex flex-col opacity-80 z-0 gap-1.5">
+           <motion.div animate={{ width: ["100%", "40%", "100%"] }} transition={{ duration: 4, repeat: Infinity }} className="h-4 w-full bg-orange-100 rounded-sm" />
+           <div className="flex gap-1.5"><div className="h-4 w-2/3 bg-[#ffede0] rounded-sm" /><div className="h-4 w-1/3 bg-[#ffdbbd] rounded-sm" /></div>
+           <motion.div animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 2.5, repeat: Infinity }} className="h-4 w-[80%] bg-[#ff6b00] rounded-sm shadow-sm shadow-orange-500/20" />
+           <div className="flex gap-1.5"><div className="h-4 w-[30%] bg-[#ffdbbd] rounded-sm" /><div className="h-4 w-[70%] bg-orange-50 rounded-sm" /></div>
+        </div>
+
+        {/* Aesthetic Orange Blocks Bottom Left */}
+        <div className="absolute top-[600px] left-[150px] w-48 flex flex-col opacity-80 z-0 gap-1.5">
+           <motion.div animate={{ width: ["50%", "100%", "50%"] }} transition={{ duration: 3.5, repeat: Infinity }} className="h-4 w-2/3 bg-[#ff6b00] rounded-sm shadow-sm shadow-orange-500/20" />
+           <div className="flex gap-1.5"><div className="h-4 w-1/3 bg-[#ffdbbd] rounded-sm" /><div className="h-4 w-2/3 bg-orange-50 rounded-sm" /></div>
+           <div className="flex gap-1.5"><div className="h-4 w-1/2 bg-[#ffede0] rounded-sm" /><div className="h-4 w-1/2 bg-orange-100 rounded-sm" /></div>
+        </div>
+      </div>
     </div>
   );
 }
