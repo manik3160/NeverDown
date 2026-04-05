@@ -14,7 +14,9 @@ import {
   ChevronUp
 } from "lucide-react";
 
-const API_BASE = "http://localhost:8000/api/v1";
+import { getApiBase } from "@/lib/api";
+
+const API_BASE = getApiBase();
 
 interface Incident {
   id: string;
