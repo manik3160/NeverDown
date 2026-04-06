@@ -122,6 +122,13 @@ def verify_github_signature(
     return hmac.compare_digest(expected_sig, computed_sig)
 
 
+def is_neverdown_branch(branch_name: Optional[str]) -> bool:
+    """Check if the branch was created by NeverDown."""
+    if not branch_name:
+        return False
+    return branch_name.startswith("neverdown/")
+
+
 @router.post("/webhooks/github")
 async def github_webhook(
     request: Request,
@@ -250,6 +257,16 @@ async def handle_workflow_run(
             )
         return {"status": "ignored", "reason": "not a failure"}
     
+    # LOOP PROTECTION: Ignore failures on NeverDown branches
+    head_branch = workflow_run.get("head_branch")
+    if is_neverdown_branch(head_branch):
+        logger.info(
+            "Ignoring failure on NeverDown remediation branch",
+            branch=head_branch,
+            workflow=workflow_run.get("name"),
+        )
+        return {"status": "ignored", "reason": "neverdown-branch-failure"}
+    
     repo = payload.get("repository", {})
     repo_url = repo.get("html_url", "")
     
@@ -323,6 +340,16 @@ async def handle_check_run(
             )
         return {"status": "ignored", "reason": "not a failure"}
     
+    # LOOP PROTECTION: Ignore failures on NeverDown branches
+    head_branch = check_run.get("check_suite", {}).get("head_branch")
+    if is_neverdown_branch(head_branch):
+        logger.info(
+            "Ignoring failure on NeverDown remediation branch (check_run)",
+            branch=head_branch,
+            check_name=check_run.get("name"),
+        )
+        return {"status": "ignored", "reason": "neverdown-branch-failure"}
+    
     repo = payload.get("repository", {})
     
     # Create incident
@@ -388,6 +415,15 @@ async def handle_check_suite(
                 repo=payload.get("repository", {}).get("full_name"),
             )
         return {"status": "ignored", "reason": "not a failure"}
+    
+    # LOOP PROTECTION: Ignore failures on NeverDown branches
+    head_branch = check_suite.get("head_branch")
+    if is_neverdown_branch(head_branch):
+        logger.info(
+            "Ignoring failure on NeverDown remediation branch (check_suite)",
+            branch=head_branch,
+        )
+        return {"status": "ignored", "reason": "neverdown-branch-failure"}
     
     repo = payload.get("repository", {})
     
