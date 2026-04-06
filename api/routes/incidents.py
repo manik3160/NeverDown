@@ -10,6 +10,7 @@ from sqlalchemy import func, and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.logging_config import get_logger
+from config.settings import get_settings
 from core.exceptions import IncidentNotFoundError
 from database.connection import get_db_session, get_session
 from database.models import IncidentORM
