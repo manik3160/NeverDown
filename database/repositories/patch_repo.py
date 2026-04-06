@@ -27,12 +27,13 @@ class PatchRepository:
             confidence=data.confidence,
             assumptions=data.assumptions,
             token_usage=data.token_usage,
-            files_changed=[],
+            files_changed=[f.model_dump() for f in data.files_changed] if data.files_changed else [],
         )
         
         self.session.add(patch_orm)
         await self.session.flush()
         await self.session.refresh(patch_orm)
+        await self.session.commit()
         
         return self._to_model(patch_orm)
     

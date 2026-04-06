@@ -29,9 +29,15 @@ export default function IncidentHistory() {
 
   useEffect(() => {
     fetch(`${API_BASE}/incidents`)
-      .then(res => res.json())
+      .then(res => {
+         if (!res.ok) throw new Error("Network response was not ok");
+         return res.json();
+      })
       .then(data => setIncidents(Array.isArray(data) ? data : []))
-      .catch(err => console.error("Failed to fetch incidents", err));
+      .catch(err => {
+         // Use console.warn instead of console.error to prevent Next.js from aggressively showing the red error overlay during development if backend is offline.
+         console.warn("Backend API offline or unreachable. Using empty incidents list.", err.message);
+      });
   }, []);
 
   // Filter logic

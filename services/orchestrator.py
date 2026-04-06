@@ -437,7 +437,8 @@ class Orchestrator:
             from database.connection import get_session
             async with get_session() as session:
                 temp_patch_repo = PatchRepository(session)
-                await temp_patch_repo.create(context.reasoner_output.patch)
+                saved_patch = await temp_patch_repo.create(context.reasoner_output.patch)
+                context.reasoner_output.patch = saved_patch
                 await session.commit()
         except Exception as e:
             logger.warning("Failed to save patch to database", error=str(e))

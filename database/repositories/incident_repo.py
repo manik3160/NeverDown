@@ -46,6 +46,7 @@ class IncidentRepository:
         self.session.add(incident_orm)
         await self.session.flush()
         await self.session.refresh(incident_orm)
+        await self.session.commit()
         
         return self._to_model(incident_orm)
     

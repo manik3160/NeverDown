@@ -208,7 +208,24 @@ class VerifierAgent(BaseAgent[VerifierInput, VerifierOutput]):
                 )
                 
                 if result.returncode != 0:
-                    return False
+                    self.logger.info("Git apply --3way failed, trying fallback to patch command")
+                    # Try with GNU patch command which is more forgiving
+                    result = subprocess.run(
+                        ["patch", "-p1", "--forward", "-i", str(patch_file)],
+                        cwd=repo_path,
+                        capture_output=True,
+                        timeout=30,
+                    )
+                    
+                    if result.returncode == 0:
+                        self.logger.info("Fallback patch command succeeded")
+                        return True
+                    else:
+                        self.logger.warning(
+                            "Fallback patch command failed",
+                            stderr=result.stderr.decode('utf-8', errors='replace')[:200],
+                        )
+                        return False
             
             # Apply the patch
             result = subprocess.run(

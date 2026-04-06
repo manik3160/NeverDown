@@ -24,6 +24,7 @@ class PatchCreate(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0)
     assumptions: List[str] = Field(default_factory=list, description="Assumptions made by Reasoner")
     token_usage: Optional[Dict[str, int]] = Field(default=None, description="LLM token usage")
+    files_changed: List[FileChange] = Field(default_factory=list)
 
 
 class Patch(BaseModel):

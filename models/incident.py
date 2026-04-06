@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 
 
 class IncidentSeverity(str, Enum):
-    """Severity levels for incidents."""
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -17,7 +16,6 @@ class IncidentSeverity(str, Enum):
 
 
 class IncidentSource(str, Enum):
-    """Source of incident detection."""
     CI = "ci"
     LOGS = "logs"
     MONITORING = "monitoring"
@@ -28,7 +26,7 @@ class IncidentSource(str, Enum):
 class IncidentStatus(str, Enum):
     """Status of incident processing."""
     PENDING = "pending"
-    MONITORING = "MONITORING"  # Dormant sentinel - watching for CI failures
+    MONITORING = "monitoring"  # Dormant sentinel - watching for CI failures
     PROCESSING = "processing"  # General processing state
     SANITIZING = "sanitizing"
     DETECTING = "detecting"  # Detective agent analyzing failure
