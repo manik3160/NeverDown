@@ -196,7 +196,16 @@ class GitHubClient:
         clean_path = file_path.lstrip('/')
         url = f"{self.BASE_URL}/repos/{owner}/{repo}/contents/{clean_path}"
         
-        # Check if file exists (to get SHA for update)
+        logger.info(
+            "push_file: attempting",
+            owner=owner,
+            repo=repo,
+            branch=branch,
+            path=clean_path,
+            url=url,
+        )
+        
+        # Check if file exists on the branch (to get SHA for update)
         sha = None
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
@@ -204,8 +213,25 @@ class GitHubClient:
                 headers=self.headers,
                 params={"ref": branch},
             )
+            logger.info(
+                "push_file: GET check",
+                status=response.status_code,
+                path=clean_path,
+                branch=branch,
+            )
             if response.status_code == 200:
                 sha = response.json().get("sha")
+            elif response.status_code == 404:
+                # File doesn't exist on this branch yet — will be created
+                # Also try checking on the default branch (file might exist there)
+                default_resp = await client.get(
+                    url,
+                    headers=self.headers,
+                    params={"ref": "main"},
+                )
+                if default_resp.status_code == 200:
+                    sha = default_resp.json().get("sha")
+                    logger.info("push_file: found file on main, using SHA for update", sha=sha[:8] if sha else None)
         
         # Create or update file
         payload: Dict[str, Any] = {
@@ -224,11 +250,20 @@ class GitHubClient:
             )
             
             if response.status_code not in (200, 201):
+                logger.error(
+                    "push_file: PUT failed",
+                    status=response.status_code,
+                    response_body=response.text[:500],
+                    url=url,
+                    branch=branch,
+                    has_sha=sha is not None,
+                )
                 raise GitHubAPIError(
                     f"Failed to push file: {response.text}",
                     status_code=response.status_code,
                 )
             
+            logger.info("push_file: success", path=clean_path, branch=branch)
             return response.json().get("commit", {}).get("sha", "")
     
     async def create_pull_request(

@@ -274,6 +274,7 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
             self._apply_patch_manually(patch, repo_path)
         
         # Now push each modified file
+        pushed_count = 0
         for file_change in patch.files_changed:
             if file_change.action == 'deleted':
                 continue  # Handle deletions separately
@@ -298,6 +299,7 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
                     f"[NeverDown] Apply fix to {file_change.path}",
                 )
                 logger.info("Pushed modified file", path=file_change.path)
+                pushed_count += 1
                 
             except Exception as e:
                 logger.warning(
@@ -305,6 +307,12 @@ class PublisherAgent(BaseAgent[PublisherInput, PullRequest]):
                     path=file_change.path,
                     error=str(e),
                 )
+        
+        if pushed_count == 0:
+            raise GitHubAPIError(
+                "No files were successfully pushed to GitHub. Check token permissions.",
+                status_code=0,
+            )
     
     def _apply_patch_manually(self, patch: Patch, repo_path: Path) -> None:
         """Manually apply patch when git apply fails.
