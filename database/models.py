@@ -32,13 +32,13 @@ class IncidentORM(Base):
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     severity: Mapped[IncidentSeverity] = mapped_column(
-        SQLEnum(IncidentSeverity, name="incidentseverity"), default=IncidentSeverity.MEDIUM
+        SQLEnum(IncidentSeverity, name="incidentseverity", native_enum=False), default=IncidentSeverity.MEDIUM
     )
     source: Mapped[IncidentSource] = mapped_column(
-        SQLEnum(IncidentSource, name="incidentsource"), default=IncidentSource.MANUAL
+        SQLEnum(IncidentSource, name="incidentsource", native_enum=False), default=IncidentSource.MANUAL
     )
     status: Mapped[IncidentStatus] = mapped_column(
-        SQLEnum(IncidentStatus, name="incidentstatus"), default=IncidentStatus.PENDING
+        SQLEnum(IncidentStatus, name="incidentstatus", native_enum=False), default=IncidentStatus.PENDING
     )
     current_state: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -127,7 +127,8 @@ class VerificationORM(Base):
     )
     incident_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     status: Mapped[VerificationStatus] = mapped_column(
-        SQLEnum(VerificationStatus, name="verificationstatus"), default=VerificationStatus.PENDING
+        SQLEnum(VerificationStatus, name="verificationstatus", native_enum=False),
+        default=VerificationStatus.PENDING,
     )
     test_results: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
     tests_passed: Mapped[int] = mapped_column(Integer, default=0)
@@ -167,7 +168,9 @@ class PullRequestORM(Base):
     body: Mapped[str] = mapped_column(Text, default="")
     labels: Mapped[List[str]] = mapped_column(JSON, default=list)
     
-    status: Mapped[PRStatus] = mapped_column(SQLEnum(PRStatus, name="prstatus"), default=PRStatus.PENDING)
+    status: Mapped[PRStatus] = mapped_column(
+        SQLEnum(PRStatus, name="prstatus", native_enum=False), default=PRStatus.OPEN
+    )
     merge_commit_sha: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     github_response: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     
