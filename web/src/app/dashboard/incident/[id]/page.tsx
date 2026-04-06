@@ -452,7 +452,7 @@ export default function IncidentDetail() {
                       <ArrowRight className="w-4 h-4 text-gray-300" strokeWidth={3} />
                    </button>
                 )}
-                {isFailed && (
+                {(!isCompleted && !incident?.pr_url) && (
                    <button 
                       onClick={handleRetry}
                       className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-bold text-white bg-[#ff6b00] hover:bg-[#e66000] transition-colors shadow-lg"
