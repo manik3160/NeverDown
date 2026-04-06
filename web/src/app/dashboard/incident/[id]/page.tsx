@@ -1,9 +1,9 @@
 "use client";
 
-import { Check, AlertCircle, ArrowRight, Activity, ArrowLeft } from "lucide-react";
+import { Check, AlertCircle, ArrowRight, Activity, ArrowLeft, Send, CornerDownLeft, X } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { getApiBase } from "@/lib/api";
 
@@ -14,6 +14,11 @@ export default function IncidentDetail() {
   const id = params.id as string;
   const [incident, setIncident] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Feedback State
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
   useEffect(() => {
     const fetchIncident = async () => {
@@ -33,6 +38,31 @@ export default function IncidentDetail() {
     const interval = setInterval(fetchIncident, 3000);
     return () => clearInterval(interval);
   }, [id]);
+
+  const submitFeedback = async () => {
+    if (!feedbackText.trim() || isSubmittingFeedback) return;
+    setIsSubmittingFeedback(true);
+    try {
+      const res = await fetch(`${API_BASE}/incidents/${id.toLowerCase()}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decision: "request_changes",
+          feedback_text: feedbackText
+        })
+      });
+      if (res.ok) {
+        setFeedbackText("");
+        setIsFeedbackOpen(false);
+        // Optimistically update status to refining
+        setIncident((prev: any) => ({ ...prev, status: "refining" }));
+      }
+    } catch (err) {
+      console.error("Feedback submission failed:", err);
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
 
   if (loading && !incident) {
      return <div className="min-h-screen flex items-center justify-center"><div className="w-6 h-6 rounded-full border-2 border-[#ff6b00] border-t-transparent animate-spin"></div></div>;
@@ -177,8 +207,60 @@ export default function IncidentDetail() {
        </div>
 
        {/* Floating Action Bar */}
-       <div className="fixed bottom-0 left-64 right-0 p-6 pointer-events-none z-50 flex justify-center pb-8 animate-in slide-in-from-bottom-8 duration-500">
-          <div className="bg-white border border-gray-200 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] rounded-[20px] p-3 pl-6 flex items-center justify-between w-full max-w-[1200px] pointer-events-auto">
+       <div className="fixed bottom-0 left-64 right-0 p-6 pointer-events-none z-50 flex flex-col items-center justify-end pb-8">
+          <AnimatePresence>
+             {isFeedbackOpen && (
+               <motion.div 
+                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                 animate={{ opacity: 1, y: 0, scale: 1 }}
+                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                 className="w-full max-w-[1200px] mb-4 pointer-events-auto"
+               >
+                 <div className="bg-white/80 backdrop-blur-xl border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-4 flex flex-col gap-3 relative overflow-hidden">
+                    {/* Glowing Accent */}
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#ff6b00]/50 to-transparent"></div>
+                    <div className="flex justify-between items-center px-1">
+                       <span className="text-[11px] font-extrabold text-[#ff6b00] uppercase tracking-widest">Refine AI Fix</span>
+                       <button onClick={() => setIsFeedbackOpen(false)} className="text-gray-400 hover:text-black transition-colors rounded-full p-1">
+                          <X className="w-4 h-4" />
+                       </button>
+                    </div>
+                    <div className="relative">
+                       <textarea 
+                          value={feedbackText}
+                          onChange={(e) => setFeedbackText(e.target.value)}
+                          placeholder="Instruct the Reasoner on what to change..."
+                          autoFocus
+                          disabled={isSubmittingFeedback}
+                          className="w-full bg-white/50 border border-gray-200/60 rounded-xl p-4 pr-12 text-[13px] text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ff6b00]/20 focus:border-[#ff6b00]/40 transition-all resize-none min-h-[80px] disabled:opacity-50"
+                          onKeyDown={(e) => {
+                             if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                submitFeedback();
+                             }
+                          }}
+                       />
+                       <button 
+                          onClick={submitFeedback}
+                          disabled={!feedbackText.trim() || isSubmittingFeedback}
+                          className="absolute right-3 bottom-3 w-8 h-8 rounded-lg bg-[#ff6b00] text-white flex items-center justify-center shadow-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                       >
+                          {isSubmittingFeedback ? (
+                             <div className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+                          ) : (
+                             <Send className="w-3.5 h-3.5 -ml-0.5" />
+                          )}
+                       </button>
+                    </div>
+                    <div className="text-[9px] font-medium text-gray-400 px-2 flex items-center gap-1.5">
+                       <CornerDownLeft className="w-2.5 h-2.5 opacity-50" /> <kbd className="font-mono px-1 py-0.5 bg-gray-100 rounded border border-gray-200">Enter</kbd> to submit
+                    </div>
+                 </div>
+               </motion.div>
+             )}
+          </AnimatePresence>
+
+          <div className="bg-white border border-gray-200 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] rounded-[20px] p-3 pl-6 flex items-center justify-between w-full max-w-[1200px] pointer-events-auto transition-transform duration-500 animate-in slide-in-from-bottom-8">
              <div className="flex items-center gap-3 text-[13px]">
                 <span className="text-gray-500">Suggested Action:</span>
                 <span className="font-bold text-black">
@@ -188,7 +270,10 @@ export default function IncidentDetail() {
              <div className="flex gap-3">
                 {incident?.pr_url ? (
                    <>
-                      <button className="px-6 py-2.5 rounded-xl text-[13px] font-bold text-gray-600 hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200">
+                      <button 
+                         onClick={() => setIsFeedbackOpen(!isFeedbackOpen)}
+                         className={`px-6 py-2.5 rounded-xl text-[13px] font-bold transition-colors border ${isFeedbackOpen ? 'bg-gray-100 text-black border-gray-200 shadow-inner' : 'text-gray-600 hover:bg-gray-100 border-transparent hover:border-gray-200'}`}
+                      >
                          Request Changes
                       </button>
                       <a href={incident.pr_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-bold text-white bg-[#1a1a1a] hover:bg-black transition-colors shadow-lg">

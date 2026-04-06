@@ -75,6 +75,17 @@ class IncidentRepository:
             return await self.get_by_id(incident_id)
         except IncidentNotFoundError:
             return None
+
+    async def get_by_pr_url(self, pr_url: str) -> Optional[Incident]:
+        """Get incident by its associated PR URL."""
+        stmt = select(IncidentORM).where(IncidentORM.pr_url == pr_url)
+        result = await self.session.execute(stmt)
+        incident_orm = result.scalar_one_or_none()
+        
+        if incident_orm is None:
+            return None
+        
+        return self._to_model(incident_orm)
     
     async def list_incidents(
         self,

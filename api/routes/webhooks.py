@@ -188,8 +188,45 @@ async def github_webhook(
         logger.info("Push event received, ignoring (waiting for CI results)")
         return {"status": "ignored", "reason": "push events are not processed, waiting for workflow_run or check_run"}
     
+    # Handle pull_request events (for syncing merged PRs back to incidents)
+    if x_github_event == "pull_request":
+        return await handle_pull_request(payload, db)
+    
     # Acknowledge but don't process other events
     return {"status": "ignored", "github_event": x_github_event}
+
+
+async def handle_pull_request(payload: Dict[str, Any], db: AsyncSession) -> Dict[str, Any]:
+    """Handle pull_request webhook event to sync PR merges to the UI."""
+    action = payload.get("action")
+    pr_data = payload.get("pull_request", {})
+    
+    # We only care when a PR is merged
+    if action == "closed" and pr_data.get("merged") is True:
+        pr_url = pr_data.get("html_url")
+        if pr_url:
+            from database.repositories.incident_repo import IncidentRepository
+            from services.events import event_bus
+            from models.incident import IncidentStatus, PipelineEvent
+            
+            repo = IncidentRepository(db)
+            incident = await repo.get_by_pr_url(pr_url)
+            
+            if incident:
+                logger.info("GitHub PR merged, syncing incident to RESOLVED", incident_id=str(incident.id), pr_url=pr_url)
+                await repo.update_status(incident.id, IncidentStatus.RESOLVED)
+                
+                # Publish event to websocket for instant UI update
+                event = PipelineEvent(
+                    event_type=PipelineEvent.PIPELINE_COMPLETE,
+                    stage="resolved",
+                    detail="PR merged successfully on GitHub",
+                    progress_pct=100,
+                )
+                await event_bus.publish(incident.id, event)
+                return {"status": "processed", "incident_id": str(incident.id), "action": "resolved"}
+                
+    return {"status": "ignored", "reason": "PR not merged or missing pr_url"}
 
 
 async def handle_workflow_run(
