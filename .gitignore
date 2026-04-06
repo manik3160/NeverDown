@@ -80,6 +80,12 @@ dmypy.json
 *.patch
 *.diff
 
+# Testing Repositories & Scratch Scripts
+/Stack-Overflow/
+/hard_reset_db.py
+/reset_db_schema.py
+/fix_pr_url.py
+
 # Docker
 docker-compose.override.yml
 
