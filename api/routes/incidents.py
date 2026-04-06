@@ -16,6 +16,7 @@ from database.repositories.patch_repo import PatchRepository
 from models.incident import (
     IncidentCreate,
     IncidentResponse,
+    IncidentDetailedResponse,
     IncidentSeverity,
     IncidentStatus,
     IncidentSummary,
