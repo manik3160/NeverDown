@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
+    AGENTS_HALTED: bool = False
     
     # API
     API_HOST: str = "0.0.0.0"
