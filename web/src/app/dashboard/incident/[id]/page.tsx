@@ -144,13 +144,24 @@ export default function IncidentDetail() {
                                 <span className="text-[9px] font-bold tracking-widest text-[#ff6b00] uppercase">Analysis</span>
                              </div>
                              <div className="p-6 overflow-x-auto text-[13px] font-mono leading-relaxed">
-                                {incident?.detective_output?.suspected_files?.length > 0 ? (
+                                {incident?.detective_output?.errors?.length > 0 || incident?.detective_output?.evidence?.length > 0 ? (
                                    <div className="space-y-4">
-                                      {incident.detective_output.suspected_files.map((file: any, idx: number) => (
-                                         <div key={idx} className="text-gray-300">
+                                      {incident.detective_output.suspected_files?.map((file: any, idx: number) => (
+                                         <div key={`file-${idx}`} className="text-gray-300">
                                             <span className="text-blue-400">{file.path}</span>
                                             <span className="text-gray-500 ml-2">// Confidence: {(file.confidence * 100).toFixed(0)}%</span>
                                             {file.snippet && <pre className="mt-2 text-[11px] text-gray-500 bg-white/5 p-2 rounded">{file.snippet}</pre>}
+                                         </div>
+                                      ))}
+                                      {incident.detective_output.errors?.map((err: any, idx: number) => (
+                                         <div key={`err-${idx}`} className="text-gray-300">
+                                            <span className="text-red-400">{err.error_type || "Error"}</span>
+                                            <span className="text-gray-500 ml-2">// {err.message}</span>
+                                         </div>
+                                      ))}
+                                      {incident.detective_output.evidence?.map((ev: string, idx: number) => (
+                                         <div key={`ev-${idx}`} className="text-gray-400 pl-4 border-l border-gray-600">
+                                            {ev}
                                          </div>
                                       ))}
                                    </div>
@@ -173,9 +184,9 @@ export default function IncidentDetail() {
                                 {incident?.reasoner_output ? (
                                    <div className="space-y-6">
                                       <div className="text-orange-400">// Root Cause Identified:</div>
-                                      <div className="text-gray-300 pl-4">{incident.reasoner_output.root_cause}</div>
-                                      <div className="text-blue-400 mt-4">// Proposed Fix Strategy:</div>
-                                      <div className="text-gray-300 pl-4 leading-loose">{incident.reasoner_output.plan}</div>
+                                      <div className="text-gray-300 pl-4">{incident.reasoner_output.root_cause_summary}</div>
+                                      <div className="text-blue-400 mt-4">// Detailed Explanation:</div>
+                                      <div className="text-gray-300 pl-4 leading-loose whitespace-pre-wrap">{incident.reasoner_output.detailed_explanation}</div>
                                    </div>
                                 ) : (
                                    <pre className="text-gray-500">{'// Reasoner is formulating a repair strategy...'}</pre>
