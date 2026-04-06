@@ -92,7 +92,12 @@ class SanitizerAgent(BaseAgent[SanitizeInput, SanitizeOutput]):
             if sanitized_path.exists():
                 shutil.rmtree(sanitized_path)
             
-            shutil.copytree(repo_path, sanitized_path, ignore=shutil.ignore_patterns('.git'))
+            # Performance: Ignore dependency and build directories
+            ignore_patterns = shutil.ignore_patterns(
+                '.git', 'node_modules', 'dist', '.next', 'build', 
+                'venv', '.venv', '__pycache__', 'out', '.vercel'
+            )
+            shutil.copytree(repo_path, sanitized_path, ignore=ignore_patterns)
             
             # Scan and sanitize files
             report = await self._sanitize_directory(
@@ -182,8 +187,12 @@ class SanitizerAgent(BaseAgent[SanitizeInput, SanitizeOutput]):
         
         # Walk directory
         for root, dirs, files in os.walk(directory):
-            # Skip hidden directories
-            dirs[:] = [d for d in dirs if not d.startswith('.')]
+            # Performance: Skip hidden and dependency directories
+            ignored_dirs = {
+                'node_modules', 'dist', '.next', 'build', 
+                'venv', '.venv', '__pycache__', 'out', '.vercel'
+            }
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ignored_dirs]
             
             for filename in files:
                 file_path = Path(root) / filename
