@@ -66,7 +66,7 @@ async def check_circuit_breaker(
     stmt = select(func.count(IncidentORM.id)).where(
         and_(
             IncidentORM.created_at >= since,
-            IncidentORM.incident_metadata["repository"]["url"].astext == repo_url
+            func.json_extract_path_text(IncidentORM.incident_metadata, 'repository', 'url') == repo_url
         )
     )
     
