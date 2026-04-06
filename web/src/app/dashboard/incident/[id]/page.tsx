@@ -65,6 +65,20 @@ export default function IncidentDetail() {
     }
   };
 
+  const handleRetry = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/incidents/${id.toLowerCase()}/retry`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        // Optimistically set status back to detecting/processing
+        setIncident((prev: any) => ({ ...prev, status: "detecting" }));
+      }
+    } catch (err) {
+      console.error("Retry failed:", err);
+    }
+  };
+
   if (loading && !incident) {
      return <div className="min-h-screen flex items-center justify-center"><div className="w-6 h-6 rounded-full border-2 border-[#ff6b00] border-t-transparent animate-spin"></div></div>;
   }
@@ -436,6 +450,15 @@ export default function IncidentDetail() {
                    <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-bold text-white bg-gray-400 cursor-not-allowed transition-colors shadow-lg">
                       Approve & Deploy Fix
                       <ArrowRight className="w-4 h-4 text-gray-300" strokeWidth={3} />
+                   </button>
+                )}
+                {isFailed && (
+                   <button 
+                      onClick={handleRetry}
+                      className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-bold text-white bg-[#ff6b00] hover:bg-[#e66000] transition-colors shadow-lg"
+                   >
+                      Retry Analysis
+                      <Activity className="w-4 h-4" />
                    </button>
                 )}
              </div>
