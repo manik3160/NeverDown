@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     
     # Agent Configuration
     SANITIZER_CONFIDENCE_THRESHOLD: float = 0.9
-    SANITIZER_MAX_SECRETS: int = 100
+    SANITIZER_MAX_SECRETS: int = 1000
     REASONER_CONFIDENCE_THRESHOLD: float = 0.7
     MAX_RETRIES: int = 3
     RETRY_BACKOFF_BASE: float = 2.0
