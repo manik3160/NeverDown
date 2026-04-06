@@ -441,3 +441,65 @@ class GitHubClient:
                 return match.group(1), match.group(2).replace('.git', '')
         
         raise ValueError(f"Could not parse GitHub URL: {url}")
+
+    async def create_webhook(
+        self,
+        owner: str,
+        repo: str,
+        webhook_url: str,
+        secret: str,
+    ) -> Dict[str, Any]:
+        """Create a webhook for the repository.
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            webhook_url: The URL to deliver payloads to
+            secret: Webhook secret token
+            
+        Returns:
+            GitHub API response dict
+        """
+        url = f"{self.BASE_URL}/repos/{owner}/{repo}/hooks"
+        
+        payload = {
+            "name": "web",
+            "active": True,
+            "events": [
+                "check_run",
+                "pull_request",
+                "push",
+                "workflow_run"
+            ],
+            "config": {
+                "url": webhook_url,
+                "content_type": "json",
+                "insecure_ssl": "0",
+                "secret": secret
+            }
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                url,
+                headers=self.headers,
+                json=payload,
+            )
+            
+            if response.status_code == 422:
+                # Webhook might already exist, try to find it
+                logger.info("Webhook might already exist, checking...", owner=owner, repo=repo)
+                get_response = await client.get(url, headers=self.headers)
+                if get_response.status_code == 200:
+                    for hook in get_response.json():
+                        if hook.get("config", {}).get("url") == webhook_url:
+                            logger.info("Webhook found", id=hook["id"])
+                            return hook
+                            
+            if response.status_code not in (200, 201):
+                raise GitHubAPIError(
+                    f"Failed to create webhook: {response.text}",
+                    status_code=response.status_code,
+                )
+            
+            return response.json()

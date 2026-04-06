@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.routes import auth, health, incidents, live, status, webhooks
+from api.routes import auth, health, incidents, integrations, live, status, webhooks
 from api.middleware.request_logging import RequestLoggingMiddleware
 from config.logging_config import configure_logging, get_logger
 from config.settings import get_settings
@@ -97,6 +97,8 @@ def create_app() -> FastAPI:
     app.include_router(webhooks.router, prefix=settings.API_PREFIX, tags=["Webhooks"])
     app.include_router(live.router, prefix=settings.API_PREFIX, tags=["Live Monitoring"])
     app.include_router(auth.router, prefix=settings.API_PREFIX + "/auth", tags=["Auth"])
+    app.include_router(integrations.router, prefix=settings.API_PREFIX + "/integrations", tags=["Integrations"])
+
     
     return app
 

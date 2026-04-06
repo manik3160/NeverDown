@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Save, Github, Key, ShieldAlert, CheckCircle2, BrainCircuit, Activity, Sliders, Target } from "lucide-react";
+import { getApiBase } from "@/lib/api";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("integrations");
@@ -10,12 +11,40 @@ export default function Settings() {
   const [isHalted, setIsHalted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showSavedToast, setShowSavedToast] = useState(false);
+  
+  const [repoUrl, setRepoUrl] = useState("");
+  const [isConnectingRepo, setIsConnectingRepo] = useState(false);
+  const [repoConnectError, setRepoConnectError] = useState("");
+  const [connectedRepo, setConnectedRepo] = useState("");
 
   useEffect(() => {
     setGithubToken(localStorage.getItem("github_token") || "");
     setLlmKey(localStorage.getItem("llm_api_key") || "");
     setIsHalted(localStorage.getItem("agents_halted") === "true");
   }, []);
+
+  const handleConnectRepo = async () => {
+    if (!repoUrl.trim()) return;
+    setIsConnectingRepo(true);
+    setRepoConnectError("");
+    setConnectedRepo("");
+    try {
+      const res = await fetch(`${getApiBase()}/integrations/github/webhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repo_url: repoUrl })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to setup webhook");
+      setConnectedRepo(repoUrl);
+      setRepoUrl("");
+    } catch (err: any) {
+      setRepoConnectError(err.message);
+    } finally {
+      setIsConnectingRepo(false);
+    }
+  };
+
 
   const handleSave = () => {
     setIsSaving(true);
@@ -105,8 +134,58 @@ export default function Settings() {
                
                {activeTab === "integrations" && (
                  <>
+                   {/* Repository Webhook Module */}
+                   <div className="bg-white rounded-2xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden mb-8">
+                      <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                         <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-[#ff6b00]/10 flex items-center justify-center text-[#ff6b00]">
+                               <Activity className="w-4 h-4" />
+                            </div>
+                            <div>
+                               <h2 className="text-base font-bold text-gray-900">Monitored Repositories</h2>
+                               <p className="text-[12px] text-gray-500 font-medium">1-Click connect GitHub repositories via automated Webhooks</p>
+                            </div>
+                         </div>
+                      </div>
+                      <div className="p-6">
+                         <div className="space-y-4">
+                            <label className="text-[13px] font-bold text-gray-700 tracking-wide">
+                               Add Repository
+                            </label>
+                            <div className="flex flex-col sm:flex-row gap-4">
+                               <input
+                                  type="text"
+                                  value={repoUrl}
+                                  onChange={(e) => setRepoUrl(e.target.value)}
+                                  placeholder="e.g. your-org/your-repo OR https://github.com/..."
+                                  className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all"
+                               />
+                               <button 
+                                  onClick={handleConnectRepo}
+                                  disabled={isConnectingRepo || !repoUrl}
+                                  className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[13px] font-bold text-white bg-[#ff6b00] hover:bg-[#e66000] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm whitespace-nowrap"
+                               >
+                                  {isConnectingRepo ? "Connecting..." : "1-Click Connect"}
+                               </button>
+                            </div>
+                            {repoConnectError && (
+                               <div className="text-xs font-medium text-red-500 mt-2 flex items-center gap-1.5 p-3 bg-red-50 rounded-lg border border-red-100">
+                                  <ShieldAlert className="w-4 h-4" />
+                                  {repoConnectError}
+                               </div>
+                            )}
+                            {connectedRepo && (
+                               <div className="text-xs font-medium text-green-600 mt-2 flex items-center gap-1.5 p-3 bg-green-50 rounded-lg border border-green-100">
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  Successfully configured webhooks for <span className="font-bold">{connectedRepo}</span>. NeverDown is now monitoring it!
+                               </div>
+                            )}
+                         </div>
+                      </div>
+                   </div>
+
                    {/* Integrations Module */}
-                   <div className="bg-white rounded-2xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden">
+                   <div className="bg-white rounded-2xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden mb-8">
                       <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
                          <Github className="w-5 h-5 text-gray-700" />
                          <h2 className="text-base font-bold text-gray-900">Version Control Integrations</h2>
