@@ -193,6 +193,21 @@ async def list_incidents(
     )
 
 
+@router.get("/incidents/{incident_id}/details", response_model=IncidentDetailedResponse)
+async def get_incident_details(
+    incident_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Get full incident details including AI reasoning, patches, and verification results."""
+    repo = IncidentRepository(db)
+    
+    try:
+        details = await repo.get_incident_details(incident_id)
+        return details
+    except IncidentNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
+
+
 @router.get("/incidents/{incident_id}", response_model=IncidentResponse)
 async def get_incident(
     incident_id: UUID,

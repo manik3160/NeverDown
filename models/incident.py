@@ -118,6 +118,15 @@ class IncidentResponse(BaseModel):
     updated_at: datetime
 
 
+class IncidentDetailedResponse(IncidentResponse):
+    """Extended incident response with agent reasoning and patch details."""
+    detective_output: Optional[Dict[str, Any]] = None
+    reasoner_output: Optional[Dict[str, Any]] = None
+    verifier_output: Optional[Dict[str, Any]] = None
+    patch_diff: Optional[str] = None
+    logs: Optional[str] = None
+
+
 class IncidentSummary(BaseModel):
     """Brief summary for listing incidents."""
     id: UUID

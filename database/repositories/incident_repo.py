@@ -86,6 +86,70 @@ class IncidentRepository:
             return None
         
         return self._to_model(incident_orm)
+
+    async def get_incident_details(self, incident_id: UUID) -> Dict[str, Any]:
+        """Fetch full incident details including AI reasoning and patches."""
+        from sqlalchemy.orm import selectinload
+        from database.models import AnalysisORM, PatchORM, VerificationORM
+        
+        stmt = (
+            select(IncidentORM)
+            .where(IncidentORM.id == incident_id)
+            .options(
+                selectinload(IncidentORM.analyses),
+                selectinload(IncidentORM.patches)
+            )
+        )
+        result = await self.session.execute(stmt)
+        orm = result.scalar_one_or_none()
+        
+        if not orm:
+            raise IncidentNotFoundError(str(incident_id))
+            
+        incident = self._to_model(orm)
+        response_data = incident.model_dump()
+        
+        # Extract AI Reasoning (latest from each agent)
+        detective_output = None
+        reasoner_output = None
+        for analysis in sorted(orm.analyses, key=lambda a: a.created_at, reverse=True):
+            if analysis.agent == "detective" and not detective_output:
+                detective_output = analysis.output
+            elif analysis.agent == "reasoner" and not reasoner_output:
+                reasoner_output = analysis.output
+                
+        # Extract latest patch and its verification
+        patch_diff = None
+        verifier_output = None
+        if orm.patches:
+            latest_patch = sorted(orm.patches, key=lambda p: p.created_at, reverse=True)[0]
+            patch_diff = latest_patch.diff
+            
+            # Fetch latest verification for this patch
+            v_stmt = select(VerificationORM).where(
+                VerificationORM.patch_id == latest_patch.id
+            ).order_by(VerificationORM.created_at.desc()).limit(1)
+            v_result = await self.session.execute(v_stmt)
+            v_orm = v_result.scalar_one_or_none()
+            if v_orm:
+                verifier_output = {
+                    "status": v_orm.status.value,
+                    "tests_passed": v_orm.tests_passed,
+                    "tests_failed": v_orm.tests_failed,
+                    "test_output": v_orm.test_output,
+                    "health_check_passed": v_orm.health_check_passed,
+                }
+                
+        response_data.update({
+            "detective_output": detective_output,
+            "reasoner_output": reasoner_output,
+            "verifier_output": verifier_output,
+            "patch_diff": patch_diff,
+            "logs": orm.logs
+        })
+        
+        return response_data
+
     
     async def list_incidents(
         self,

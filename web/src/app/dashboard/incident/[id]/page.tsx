@@ -14,6 +14,7 @@ export default function IncidentDetail() {
   const id = params.id as string;
   const [incident, setIncident] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(0);
 
   // Feedback State
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -23,7 +24,7 @@ export default function IncidentDetail() {
   useEffect(() => {
     const fetchIncident = async () => {
       try {
-        const res = await fetch(`${API_BASE}/incidents/${id.toLowerCase()}`);
+        const res = await fetch(`${API_BASE}/incidents/${id.toLowerCase()}/details`);
         if (res.ok) {
           const data = await res.json();
           setIncident(data);
@@ -68,10 +69,12 @@ export default function IncidentDetail() {
      return <div className="min-h-screen flex items-center justify-center"><div className="w-6 h-6 rounded-full border-2 border-[#ff6b00] border-t-transparent animate-spin"></div></div>;
   }
 
-  const title = incident?.title || "CI Failure: Authentication API";
+  const title = incident?.title || "CI Failure detected";
   const statusStr = incident?.status || "processing";
   const isCompleted = ['resolved', 'completed', 'pr_created', 'awaiting_review'].includes(statusStr);
   const isFailed = statusStr === 'failed';
+
+  const tabs = ["Detective Analysis", "AI Reasoning", "Patch Preview", "Verification"];
 
   return (
     <div className="bg-[#fafafa] min-h-screen p-10 font-sans text-gray-900 pb-32">
@@ -116,36 +119,137 @@ export default function IncidentDetail() {
              {/* Left pane: Tabs & Code */}
              <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
                 <div className="flex border-b border-gray-100 px-2 pt-2">
-                   {["Detective Analysis", "AI Reasoning", "Patch Preview", "Verification"].map((tab, i) => (
-                      <button key={i} className={`px-6 py-4 text-[13px] font-bold transition-colors ${i === 0 ? "border-b-[3px] border-black text-black" : "text-gray-400 border-b-[3px] border-transparent hover:text-gray-600"}`}>
-                         {tab}
-                      </button>
-                   ))}
+                   {tabs.map((tab, i) => (
+                       <button 
+                          key={i} 
+                          onClick={() => setActiveTab(i)}
+                          className={`px-6 py-4 text-[13px] font-bold transition-colors ${activeTab === i ? "border-b-[3px] border-black text-black" : "text-gray-400 border-b-[3px] border-transparent hover:text-gray-600"}`}
+                       >
+                          {tab}
+                       </button>
+                    ))}
                 </div>
                 
                 <div className="p-8 pb-10 flex-1">
-                   <h3 className="text-lg font-serif font-bold text-black mb-4 tracking-tight">Failure Localization</h3>
-                   <p className="text-[13px] text-gray-600 leading-relaxed mb-8 pr-12">
-                      {incident?.description || "Analyzing the logs to determine the root cause of the failure and identify the affected module."}
-                   </p>
+                    {activeTab === 0 && (
+                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                          <h3 className="text-lg font-serif font-bold text-black mb-4 tracking-tight">Failure Localization</h3>
+                          <p className="text-[13px] text-gray-600 leading-relaxed mb-8 pr-12">
+                             {incident?.detective_output?.failure_category ? `The Detective agent identified this as a ${incident.detective_output.failure_category.replace('_', ' ')}.` : "Analyzing the logs to determine the root cause of the failure and identify the affected module."}
+                          </p>
 
-                   <div className="bg-[#141414] rounded-xl border border-[#2a2a2a] overflow-hidden shadow-xl mb-10">
-                      <div className="flex justify-between items-center px-4 py-3 border-b border-[#2a2a2a] bg-[#1a1a1a]">
-                         <span className="text-[11px] text-gray-400 font-mono">Analysis View</span>
-                         <span className="text-[9px] font-bold tracking-widest text-gray-500 uppercase">Source</span>
-                      </div>
-                      <div className="p-6 overflow-x-auto text-[13px] font-mono leading-relaxed">
-<pre className="text-gray-300">
-{'// Automated fix details are being prepared by the Reasoner...'}
-</pre>
-                      </div>
-                   </div>
+                          <div className="bg-[#141414] rounded-xl border border-[#2a2a2a] overflow-hidden shadow-xl mb-10">
+                             <div className="flex justify-between items-center px-4 py-3 border-b border-[#2a2a2a] bg-[#1a1a1a]">
+                                <span className="text-[11px] text-gray-400 font-mono">Suspected Files</span>
+                                <span className="text-[9px] font-bold tracking-widest text-[#ff6b00] uppercase">Analysis</span>
+                             </div>
+                             <div className="p-6 overflow-x-auto text-[13px] font-mono leading-relaxed">
+                                {incident?.detective_output?.suspected_files?.length > 0 ? (
+                                   <div className="space-y-4">
+                                      {incident.detective_output.suspected_files.map((file: any, idx: number) => (
+                                         <div key={idx} className="text-gray-300">
+                                            <span className="text-blue-400">{file.path}</span>
+                                            <span className="text-gray-500 ml-2">// Confidence: {(file.confidence * 100).toFixed(0)}%</span>
+                                            {file.snippet && <pre className="mt-2 text-[11px] text-gray-500 bg-white/5 p-2 rounded">{file.snippet}</pre>}
+                                         </div>
+                                      ))}
+                                   </div>
+                                ) : (
+                                   <pre className="text-gray-500">{'// Automated analysis details are being prepared...'}</pre>
+                                )}
+                             </div>
+                          </div>
+                       </motion.div>
+                    )}
 
-                   <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Raw Execution Logs</div>
-                   <div className="bg-[#f9fafb] border border-gray-100 rounded-lg p-5 font-mono text-[11px] text-gray-400 leading-relaxed shadow-inner">
-                      {incident?.error_message ? <div>{incident.error_message}</div> : <div>Awaiting detailed execution trace...</div>}
-                   </div>
-                </div>
+                    {activeTab === 1 && (
+                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                          <h3 className="text-lg font-serif font-bold text-black mb-4 tracking-tight">AI Reasoning Path</h3>
+                          <div className="bg-[#141414] rounded-xl border border-[#2a2a2a] overflow-hidden shadow-xl mb-10">
+                             <div className="flex justify-between items-center px-4 py-3 border-b border-[#2a2a2a] bg-[#1a1a1a]">
+                                <span className="text-[11px] text-gray-400 font-mono">Reasoner Plan</span>
+                             </div>
+                             <div className="p-6 text-[13px] font-mono leading-relaxed">
+                                {incident?.reasoner_output ? (
+                                   <div className="space-y-6">
+                                      <div className="text-orange-400">// Root Cause Identified:</div>
+                                      <div className="text-gray-300 pl-4">{incident.reasoner_output.root_cause}</div>
+                                      <div className="text-blue-400 mt-4">// Proposed Fix Strategy:</div>
+                                      <div className="text-gray-300 pl-4 leading-loose">{incident.reasoner_output.plan}</div>
+                                   </div>
+                                ) : (
+                                   <pre className="text-gray-500">{'// Reasoner is formulating a repair strategy...'}</pre>
+                                )}
+                             </div>
+                          </div>
+                       </motion.div>
+                    )}
+
+                    {activeTab === 2 && (
+                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                          <h3 className="text-lg font-serif font-bold text-black mb-4 tracking-tight">Patch Preview</h3>
+                          <div className="bg-[#141414] rounded-xl border border-[#2a2a2a] overflow-hidden shadow-xl mb-10">
+                             <div className="flex justify-between items-center px-4 py-3 border-b border-[#2a2a2a] bg-[#1a1a1a]">
+                                <span className="text-[11px] text-gray-400 font-mono">Unified Diff</span>
+                             </div>
+                             <div className="p-6 overflow-x-auto text-[12px] font-mono leading-relaxed min-h-[300px]">
+                                {incident?.patch_diff ? (
+                                   <pre className="text-gray-300 whitespace-pre-wrap">
+                                      {incident.patch_diff.split('\n').map((line: string, i: number) => {
+                                         let color = "text-gray-400";
+                                         if (line.startsWith('+')) color = "text-green-400 bg-green-900/20";
+                                         if (line.startsWith('-')) color = "text-red-400 bg-red-900/20";
+                                         if (line.startsWith('@@')) color = "text-blue-400";
+                                         return <div key={i} className={color}>{line}</div>
+                                      })}
+                                   </pre>
+                                ) : (
+                                   <div className="flex flex-col items-center justify-center h-full text-gray-500 py-20">
+                                      <Activity className="w-8 h-8 animate-pulse mb-4" />
+                                      <span>Generating optimized patch...</span>
+                                   </div>
+                                )}
+                             </div>
+                          </div>
+                       </motion.div>
+                    )}
+
+                    {activeTab === 3 && (
+                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                          <h3 className="text-lg font-serif font-bold text-black mb-4 tracking-tight">Verification Results</h3>
+                          <div className="grid grid-cols-2 gap-4 mb-6">
+                             <div className="bg-white border border-gray-100 rounded-xl p-4">
+                                <div className="text-[10px] uppercase text-gray-400 font-bold mb-1">Status</div>
+                                <div className="flex items-center gap-2">
+                                   <div className={`w-2 h-2 rounded-full ${incident?.verifier_output?.status === 'success' ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                                   <span className="text-sm font-bold uppercase">{incident?.verifier_output?.status || "Waiting"}</span>
+                                </div>
+                             </div>
+                             <div className="bg-white border border-gray-100 rounded-xl p-4">
+                                <div className="text-[10px] uppercase text-gray-400 font-bold mb-1">Tests Passed</div>
+                                <div className="text-sm font-bold">{incident?.verifier_output?.tests_passed ?? 0} total</div>
+                             </div>
+                          </div>
+                          <div className="bg-[#141414] rounded-xl border border-[#2a2a2a] overflow-hidden shadow-xl">
+                             <div className="flex justify-between items-center px-4 py-3 border-b border-[#2a2a2a] bg-[#1a1a1a]">
+                                <span className="text-[11px] text-gray-400 font-mono">Sandbox Output</span>
+                             </div>
+                             <div className="p-6 overflow-x-auto text-[11px] font-mono leading-relaxed bg-black/50 text-gray-400 max-h-[400px] overflow-y-auto">
+                                {incident?.verifier_output?.test_output ? (
+                                   <pre className="whitespace-pre-wrap">{incident.verifier_output.test_output}</pre>
+                                ) : (
+                                   <pre className="text-gray-600">{'// Awaiting sandbox verification trace...'}</pre>
+                                )}
+                             </div>
+                          </div>
+                       </motion.div>
+                    )}
+
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-10 mb-4">Raw Execution Logs</div>
+                    <div className="bg-[#f9fafb] border border-gray-100 rounded-lg p-5 font-mono text-[11px] text-gray-400 leading-relaxed shadow-inner max-h-[200px] overflow-y-auto">
+                       {incident?.logs ? <pre className="whitespace-pre-wrap">{incident.logs}</pre> : <div>Awaiting detailed execution trace...</div>}
+                    </div>
+                 </div>
              </div>
 
              {/* Right pane: Insight & Events */}
@@ -172,30 +276,31 @@ export default function IncidentDetail() {
                 {/* Related Events */}
                 <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                    <h3 className="text-[14px] font-bold text-black mb-6 tracking-tight">Related Events</h3>
-                   <div className="space-y-6">
-                      
-                      <div className="flex gap-4">
-                         <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                            <Activity className="w-4 h-4" />
-                         </div>
-                         <div>
-                            <div className="text-[13px] font-bold text-black">New Deploy</div>
-                            <div className="text-xs text-gray-500 mt-0.5 leading-relaxed">v2.4.0-rc1 triggered this spike</div>
-                            <div className="text-[10px] font-medium text-gray-400 mt-1.5">2 hours ago</div>
-                         </div>
-                      </div>
-
-                      <div className="flex gap-4">
-                         <div className="w-8 h-8 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
-                            <AlertCircle className="w-4 h-4" />
-                         </div>
-                         <div>
-                            <div className="text-[13px] font-bold text-black">Error Spikes</div>
-                            <div className="text-xs text-gray-500 mt-0.5 leading-relaxed">500 Errors increased by 400%</div>
-                            <div className="text-[10px] font-medium text-gray-400 mt-1.5">1 hour ago</div>
-                         </div>
-                      </div>
-
+                   <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                      {incident?.timeline?.length > 0 ? (
+                         [...incident.timeline].reverse().map((event: any, idx: number) => (
+                            <div key={idx} className="flex gap-4">
+                               <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                                  event.state === 'RECEIVED' ? 'bg-blue-50 text-blue-500' :
+                                  event.state === 'RESOLVED' ? 'bg-green-50 text-green-500' :
+                                  'bg-orange-50 text-orange-500'
+                               }`}>
+                                  {event.state === 'RECEIVED' ? <Activity className="w-4 h-4" /> :
+                                   event.state === 'RESOLVED' ? <Check className="w-4 h-4" /> :
+                                   <AlertCircle className="w-4 h-4" />}
+                               </div>
+                               <div>
+                                  <div className="text-[12px] font-bold text-black">{event.state.replace('_', ' ')}</div>
+                                  <div className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">{event.details?.message || "Automated transition"}</div>
+                                  <div className="text-[9px] font-medium text-gray-400 mt-1.5">
+                                     {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                               </div>
+                            </div>
+                         ))
+                      ) : (
+                         <div className="text-xs text-gray-400 py-4 italic">No events recorded yet...</div>
+                      )}
                    </div>
                    
                    <button className="w-full mt-6 py-3 rounded-xl border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 hover:text-black transition-colors">
