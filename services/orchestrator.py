@@ -2,6 +2,7 @@
 
 import asyncio
 import re
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -102,55 +103,85 @@ class Orchestrator:
             )
             
             # Step 1: Clone repository
+            print(f"[HEARTBEAT] {context.incident_id}: Cloning repository...")
+            sys.stdout.flush()
             await self._clone_repository(context)
+            print(f"[HEARTBEAT] {context.incident_id}: Clone completed.")
+            sys.stdout.flush()
             
             # Step 1.5: Fetch GitHub Actions logs if not provided
+            print(f"[HEARTBEAT] {context.incident_id}: Fetching logs...")
+            sys.stdout.flush()
             await self._fetch_github_actions_logs(context)
+            print(f"[HEARTBEAT] {context.incident_id}: Log fetch completed.")
+            sys.stdout.flush()
             
             # Step 2: Sanitize (SECRET PROTECTION)
+            print(f"[HEARTBEAT] {context.incident_id}: Starting Sanitizer...")
+            sys.stdout.flush()
             sanitize_success = await self._run_sanitizer(context)
             if not sanitize_success:
+                print(f"[HEARTBEAT] {context.incident_id}: Sanitizer FAILED.")
+                sys.stdout.flush()
                 await self._update_status(
                     context.incident_id,
                     IncidentStatus.FAILED,
                     "Sanitization failed",
                 )
                 return False
+            print(f"[HEARTBEAT] {context.incident_id}: Sanitization completed.")
+            sys.stdout.flush()
             
             # Step 3: Detective analysis
+            print(f"[HEARTBEAT] {context.incident_id}: Starting Detective...")
+            sys.stdout.flush()
             detective_success = await self._run_detective(context)
             if not detective_success:
+                print(f"[HEARTBEAT] {context.incident_id}: Detective FAILED.")
+                sys.stdout.flush()
                 await self._update_status(
                     context.incident_id,
                     IncidentStatus.FAILED,
                     "Detective analysis failed",
                 )
                 return False
+            print(f"[HEARTBEAT] {context.incident_id}: Detective analysis completed.")
+            sys.stdout.flush()
             
             # Step 4: Reasoner (LLM analysis)
+            print(f"[HEARTBEAT] {context.incident_id}: Starting Reasoner...")
+            sys.stdout.flush()
             reasoner_success = await self._run_reasoner(context)
             if not reasoner_success:
+                print(f"[HEARTBEAT] {context.incident_id}: Reasoner FAILED.")
+                sys.stdout.flush()
                 await self._update_status(
                     context.incident_id,
                     IncidentStatus.FAILED,
                     "Reasoner analysis failed",
                 )
                 return False
-            
+            print(f"[HEARTBEAT] {context.incident_id}: Reasoner completed.")
+            sys.stdout.flush()
             
             # Step 5: Verifier (sandbox testing)
-            # Note: Verifier requires Docker-in-Docker which may not be available
-            # If verification fails, we log it but continue to PR creation
+            print(f"[HEARTBEAT] {context.incident_id}: Starting Verifier...")
+            sys.stdout.flush()
             verifier_success = await self._run_verifier(context)
             if not verifier_success:
+                print(f"[HEARTBEAT] {context.incident_id}: Verifier FAILED/SKIPPED.")
+                sys.stdout.flush()
                 logger.warning(
                     "Verification skipped or failed - proceeding with unverified patch",
                     incident_id=str(context.incident_id),
                 )
-                # Don't halt the pipeline - continue to Publisher
-            
+            else:
+                print(f"[HEARTBEAT] {context.incident_id}: Verification completed.")
+                sys.stdout.flush()
             
             # Step 6: Publisher (create PR)
+            print(f"[HEARTBEAT] {context.incident_id}: Starting Publisher...")
+            sys.stdout.flush()
             publisher_success = await self._run_publisher(context)
             if not publisher_success:
                 await self._update_status(
