@@ -4,10 +4,44 @@ import { Check, AlertCircle, ArrowRight, Activity, ArrowLeft } from "lucide-reac
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { getApiBase } from "@/lib/api";
+
+const API_BASE = getApiBase();
 
 export default function IncidentDetail() {
   const params = useParams();
   const id = params.id as string;
+  const [incident, setIncident] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchIncident = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/incidents/${id.toLowerCase()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setIncident(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch incident:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchIncident();
+    const interval = setInterval(fetchIncident, 3000);
+    return () => clearInterval(interval);
+  }, [id]);
+
+  if (loading && !incident) {
+     return <div className="min-h-screen flex items-center justify-center"><div className="w-6 h-6 rounded-full border-2 border-[#ff6b00] border-t-transparent animate-spin"></div></div>;
+  }
+
+  const title = incident?.title || "CI Failure: Authentication API";
+  const statusStr = incident?.status || "processing";
+  const isCompleted = ['resolved', 'completed', 'pr_created', 'awaiting_review'].includes(statusStr);
+  const isFailed = statusStr === 'failed';
 
   return (
     <div className="bg-[#fafafa] min-h-screen p-10 font-sans text-gray-900 pb-32">
@@ -20,26 +54,32 @@ export default function IncidentDetail() {
           {/* Header */}
           <div className="flex justify-between items-start mb-12">
              <div>
-                <div className="text-[11px] font-bold text-gray-400 tracking-[0.15em] mb-3 uppercase">{id || "INCIDENT-A7F3B2C1"}</div>
-                <h1 className="text-4xl font-serif font-bold text-black tracking-tight">CI Failure: Authentication API</h1>
+                <div className="text-[11px] font-bold text-gray-400 tracking-[0.15em] mb-3 uppercase">{id}</div>
+                <h1 className="text-4xl font-serif font-bold text-black tracking-tight">{title}</h1>
              </div>
              <div className="flex items-center gap-2.5 bg-[#fff7ef] border border-[#ffdbbd] px-4 py-2 mt-4 rounded-full shadow-sm">
-                <div className="w-2 h-2 rounded-full bg-[#ff6b00] animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
-                <span className="text-[11px] font-extrabold text-[#d97706] tracking-[0.1em] uppercase">Active Analysis</span>
+                {!isCompleted && !isFailed ? (
+                  <div className="w-2 h-2 rounded-full bg-[#ff6b00] animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
+                ) : (
+                  <div className={`w-2 h-2 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                )}
+                <span className={`text-[11px] font-extrabold tracking-[0.1em] uppercase ${isCompleted ? 'text-green-600' : isFailed ? 'text-red-600' : 'text-[#d97706]'}`}>
+                  {isCompleted ? 'Completed' : isFailed ? 'Failed' : 'Active Analysis'}
+                </span>
              </div>
           </div>
 
           {/* Stepper */}
           <div className="flex items-center justify-between bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-10">
-             <StepItem title="Sanitizer" state="completed" />
-             <StepDivider />
-             <StepItem title="Detective" state="completed" />
-             <StepDivider active />
-             <StepItem title="Architect" state="active" />
-             <StepDivider faded />
-             <StepItem title="Verifier" state="faded" />
-             <StepDivider faded />
-             <StepItem title="Publisher" state="faded" />
+             <StepItem title="Sanitizer" state={['pending', 'monitoring'].includes(statusStr) ? 'active' : 'completed'} />
+             <StepDivider active={!['pending', 'monitoring'].includes(statusStr)} />
+             <StepItem title="Detective" state={['pending', 'monitoring', 'sanitizing'].includes(statusStr) ? 'faded' : ['detecting'].includes(statusStr) ? 'active' : 'completed'} />
+             <StepDivider active={!['pending', 'monitoring', 'sanitizing', 'detecting'].includes(statusStr)} faded={['pending', 'monitoring', 'sanitizing'].includes(statusStr)} />
+             <StepItem title="Architect" state={['reasoning'].includes(statusStr) ? 'active' : ['verifying', 'creating_pr', 'pr_created', 'awaiting_review', 'resolved', 'completed'].includes(statusStr) ? 'completed' : 'faded'} />
+             <StepDivider active={['creating_pr', 'pr_created', 'awaiting_review', 'resolved', 'completed'].includes(statusStr)} faded={!['creating_pr', 'pr_created', 'awaiting_review', 'resolved', 'completed'].includes(statusStr) && statusStr !== 'verifying'} />
+             <StepItem title="Verifier" state={['verifying'].includes(statusStr) ? 'active' : ['creating_pr', 'pr_created', 'awaiting_review', 'resolved', 'completed'].includes(statusStr) ? 'completed' : 'faded'} />
+             <StepDivider active={['pr_created', 'awaiting_review', 'resolved', 'completed'].includes(statusStr)} faded={!['pr_created', 'awaiting_review', 'resolved', 'completed'].includes(statusStr) && statusStr !== 'creating_pr'} />
+             <StepItem title="Publisher" state={['creating_pr'].includes(statusStr) ? 'active' : ['pr_created', 'awaiting_review', 'resolved', 'completed'].includes(statusStr) ? 'completed' : 'faded'} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -56,38 +96,24 @@ export default function IncidentDetail() {
                 <div className="p-8 pb-10 flex-1">
                    <h3 className="text-lg font-serif font-bold text-black mb-4 tracking-tight">Failure Localization</h3>
                    <p className="text-[13px] text-gray-600 leading-relaxed mb-8 pr-12">
-                      The failure was detected in the <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-[11px] font-mono border border-gray-200">auth-provider-v2.ts</code> module. A race condition occurs during the JWT validation handshake when multiple concurrent requests hit the caching layer before initialization.
+                      {incident?.description || "Analyzing the logs to determine the root cause of the failure and identify the affected module."}
                    </p>
 
                    <div className="bg-[#141414] rounded-xl border border-[#2a2a2a] overflow-hidden shadow-xl mb-10">
                       <div className="flex justify-between items-center px-4 py-3 border-b border-[#2a2a2a] bg-[#1a1a1a]">
-                         <span className="text-[11px] text-gray-400 font-mono">src/services/auth-provider-v2.ts</span>
-                         <span className="text-[9px] font-bold tracking-widest text-gray-500 uppercase">Typescript</span>
+                         <span className="text-[11px] text-gray-400 font-mono">Analysis View</span>
+                         <span className="text-[9px] font-bold tracking-widest text-gray-500 uppercase">Source</span>
                       </div>
                       <div className="p-6 overflow-x-auto text-[13px] font-mono leading-relaxed">
 <pre className="text-gray-300">
-<span className="text-[#cba6f7]">async</span> <span className="text-[#89b4fa]">validateToken</span>(token: <span className="text-[#a6e3a1]">string</span>) {'{'}
-  <span className="text-gray-500">// CRITICAL: This flag is not checked before cache access</span>
-  <span className="text-[#cba6f7]">const</span> cached = <span className="text-[#cba6f7]">await</span> <span className="text-[#f38ba8]">this</span>.cache.<span className="text-[#89b4fa]">get</span>(token);
-
-  <span className="text-[#cba6f7]">if</span> (!cached) {'{'}
-<div className="bg-[#f38ba8]/10 w-[120%] -ml-6 px-6 py-0.5 border-l-[3px] border-[#f38ba8]">    <span className="text-[#cba6f7]">const</span> validated = <span className="text-[#cba6f7]">await</span> <span className="text-[#f38ba8]">this</span>.<span className="text-[#89b4fa]">handshake</span>(); <span className="text-[#f38ba8]">// Fails under load</span></div>
-    <span className="text-[#cba6f7]">await</span> <span className="text-[#f38ba8]">this</span>.cache.<span className="text-[#89b4fa]">set</span>(token, validated);
-    <span className="text-[#cba6f7]">return</span> validated;
-  {'}'}
-
-  <span className="text-[#cba6f7]">return</span> cached;
-{'}'}
+{'// Automated fix details are being prepared by the Reasoner...'}
 </pre>
                       </div>
                    </div>
 
                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Raw Execution Logs</div>
                    <div className="bg-[#f9fafb] border border-gray-100 rounded-lg p-5 font-mono text-[11px] text-gray-400 leading-relaxed shadow-inner">
-                      <div>[14:21:37] INF Initializing Auth Service...</div>
-                      <div>[14:21:38] ERR Handshake timeout after 5000ms</div>
-                      <div>[14:21:38] WRN Connection pool exhausted: 10/10 active</div>
-                      <div>[14:21:39] FAT Trace: Process exit with code 1</div>
+                      {incident?.error_message ? <div>{incident.error_message}</div> : <div>Awaiting detailed execution trace...</div>}
                    </div>
                 </div>
              </div>
@@ -100,7 +126,7 @@ export default function IncidentDetail() {
                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-[#ff6b00]/10 rounded-full blur-[40px]"></div>
                    <h3 className="text-[11px] font-extrabold text-[#ff6b00] uppercase tracking-[0.15em] mb-4">NeverDown Insight</h3>
                    <p className="text-[15px] font-serif leading-relaxed mb-8 pr-4">
-                     "A memory leak in the handshake pooler is causing the connection exhaustion observed during high-traffic spikes."
+                     {incident?.description || "A memory leak in the handshake pooler is causing the connection exhaustion observed during high-traffic spikes."}
                    </p>
                    <div>
                       <div className="flex justify-between text-xs mb-3">
@@ -155,16 +181,27 @@ export default function IncidentDetail() {
           <div className="bg-white border border-gray-200 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] rounded-[20px] p-3 pl-6 flex items-center justify-between w-full max-w-[1200px] pointer-events-auto">
              <div className="flex items-center gap-3 text-[13px]">
                 <span className="text-gray-500">Suggested Action:</span>
-                <span className="font-bold text-black">Rollback to v2.3.9 and apply Patch #441</span>
+                <span className="font-bold text-black">
+                   {incident?.pr_url ? `Review and Merge PR in ${incident?.metadata?.repository?.name || 'Repository'}` : "Awaiting PR creation or automatic fix..."}
+                </span>
              </div>
              <div className="flex gap-3">
-                <button className="px-6 py-2.5 rounded-xl text-[13px] font-bold text-gray-600 hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200">
-                   Request Changes
-                </button>
-                <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-bold text-white bg-[#1a1a1a] hover:bg-black transition-colors shadow-lg">
-                   Approve & Deploy Fix
-                   <ArrowRight className="w-4 h-4 text-[#ff6b00]" strokeWidth={3} />
-                </button>
+                {incident?.pr_url ? (
+                   <>
+                      <button className="px-6 py-2.5 rounded-xl text-[13px] font-bold text-gray-600 hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200">
+                         Request Changes
+                      </button>
+                      <a href={incident.pr_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-bold text-white bg-[#1a1a1a] hover:bg-black transition-colors shadow-lg">
+                         View PR on GitHub
+                         <ArrowRight className="w-4 h-4 text-[#ff6b00]" strokeWidth={3} />
+                      </a>
+                   </>
+                ) : (
+                   <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-bold text-white bg-gray-400 cursor-not-allowed transition-colors shadow-lg">
+                      Approve & Deploy Fix
+                      <ArrowRight className="w-4 h-4 text-gray-300" strokeWidth={3} />
+                   </button>
+                )}
              </div>
           </div>
        </div>

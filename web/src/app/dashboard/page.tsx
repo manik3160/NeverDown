@@ -218,7 +218,7 @@ export default function Dashboard() {
                              <StatusBadge status={inc.status} />
                            </td>
                            <td className="px-6 py-6 text-right text-[13px] font-medium text-gray-400 align-top">
-                             {new Date(inc.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                             {new Date(inc.created_at + 'Z').toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                            </td>
                         </tr>
                       ))}
