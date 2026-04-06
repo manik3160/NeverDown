@@ -741,6 +741,7 @@ class Orchestrator:
             # Reconstruct detective report
             from models.analysis import DetectiveReport, ErrorInfo, FailureCategory, SuspectedFile
             context.detective_report = DetectiveReport(
+                incident_id=incident_id,
                 errors=[ErrorInfo(**e) for e in detective_report_dict.get("errors", [])],
                 suspected_files=[SuspectedFile(**f) for f in detective_report_dict.get("suspected_files", [])],
                 failure_category=FailureCategory(detective_report_dict.get("failure_category", "unknown")),

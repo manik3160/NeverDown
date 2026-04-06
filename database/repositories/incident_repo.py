@@ -150,6 +150,25 @@ class IncidentRepository:
         
         return response_data
 
+    async def save_analysis(
+        self,
+        incident_id: UUID,
+        agent: str,
+        output: Dict[str, Any],
+        duration_ms: int = 0
+    ) -> None:
+        """Save agent reasoning output to the analyses table."""
+        from database.models import AnalysisORM
+        
+        analysis = AnalysisORM(
+            incident_id=incident_id,
+            agent=agent,
+            output=output,
+            duration_ms=duration_ms,
+        )
+        self.session.add(analysis)
+        await self.session.commit()
+
     
     async def list_incidents(
         self,
