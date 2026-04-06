@@ -1,15 +1,18 @@
 """Incident management endpoints."""
 
 from enum import Enum
+from datetime import datetime, timedelta
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from sqlalchemy import func, and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.logging_config import get_logger
 from core.exceptions import IncidentNotFoundError
 from database.connection import get_db_session, get_session
+from database.models import IncidentORM
 from database.repositories.audit_repo import AuditRepository
 from database.repositories.incident_repo import IncidentRepository
 from database.repositories.patch_repo import PatchRepository
@@ -26,6 +29,50 @@ from services.orchestrator import Orchestrator, OrchestrationContext
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+async def check_sha_deduplication(
+    session: AsyncSession,
+    repo_url: str,
+    commit_sha: Optional[str],
+) -> Optional[UUID]:
+    """Check if an incident for the same Commit SHA is already active."""
+    if not commit_sha:
+        return None
+        
+    stmt = select(IncidentORM.id).where(
+        and_(
+            IncidentORM.status.in_([IncidentStatus.PROCESSING, IncidentStatus.PENDING, IncidentStatus.AWAITING_REVIEW]),
+            IncidentORM.incident_metadata["repository"]["url"].astext == repo_url,
+            IncidentORM.incident_metadata["repository"]["commit"].astext == commit_sha
+        )
+    ).limit(1)
+    
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def check_circuit_breaker(
+    session: AsyncSession,
+    repo_url: str,
+    limit_count: int = 2,
+    window_minutes: int = 5
+) -> bool:
+    """Check if the incident threshold for a repository has been exceeded."""
+    since = datetime.utcnow() - timedelta(minutes=window_minutes)
+    
+    # Query for incidents created for this repo in the window
+    stmt = select(func.count(IncidentORM.id)).where(
+        and_(
+            IncidentORM.created_at >= since,
+            IncidentORM.incident_metadata["repository"]["url"].astext == repo_url
+        )
+    )
+    
+    result = await session.execute(stmt)
+    count = result.scalar() or 0
+    
+    return count > limit_count
 
 
 async def process_incident_async(
@@ -45,6 +92,32 @@ async def process_incident_async(
     print(f"[DEBUG] process_incident_async STARTED for {incident_id}")  # Direct stdout
     logger.info("Starting incident processing", incident_id=str(incident_id))
     
+    settings = get_settings()
+
+    # SAFETY CHECK 1: Global Halt
+    if settings.AGENTS_HALTED:
+        logger.info("Global agents halt is active, skipping pipeline", incident_id=str(incident_id))
+        async with get_session() as session:
+             repo = IncidentRepository(session)
+             await repo.update_status(incident_id, IncidentStatus.MONITORING)
+             await repo.add_timeline_event(incident_id, "HALTED", {"reason": "Global agents halt enabled by user"})
+             await session.commit()
+        return
+
+    # SAFETY CHECK 2: Circuit Breaker (2 calls per 5 mins per repo)
+    async with get_session() as session:
+        if await check_circuit_breaker(session, repo_url, limit_count=2, window_minutes=5):
+            logger.warning("CIRCUIT BREAKER TRIGGERED for repo", repo_url=repo_url)
+            repo = IncidentRepository(session)
+            await repo.update_status(incident_id, IncidentStatus.FAILED)
+            await repo.add_timeline_event(
+                incident_id, 
+                "CIRCUIT_BREAKER_TRIGGERED", 
+                {"reason": "Exceeded 2 incidents per 5 minutes threshold to prevent token waste"}
+            )
+            await session.commit()
+            return
+
     # Check if we have actual error logs to process
     # If not, enter MONITORING mode (Dormant Sentinel)
     has_error_logs = logs and len(logs.strip()) > 20 and "error" in logs.lower()
@@ -128,8 +201,21 @@ async def create_incident(
         title=data.title,
         severity=data.severity.value,
         source=data.source.value,
+        repo=data.metadata.repository.url
     )
     
+    # SAFETY CHECK 3: Deduplication (SHA based)
+    commit_sha = data.metadata.repository.commit
+    repo_url = data.metadata.repository.url
+    
+    existing_active_id = await check_sha_deduplication(db, repo_url, commit_sha)
+    if existing_active_id:
+        logger.info("De-duplicating incident - existing one found for this SHA", original_incident_id=str(existing_active_id))
+        # Keep existing incident as the source of truth, return its response
+        repo = IncidentRepository(db)
+        existing = await repo.get_by_id(existing_active_id)
+        return existing.to_response()
+
     repo = IncidentRepository(db)
     incident = await repo.create(data)
     
