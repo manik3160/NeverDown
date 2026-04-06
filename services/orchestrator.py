@@ -406,6 +406,17 @@ class Orchestrator:
         
         context.detective_report = result.output.report
         
+        # Save detective output to database
+        try:
+            await self.incident_repo.save_analysis(
+                incident_id=context.incident_id,
+                agent="detective",
+                output=context.detective_report.model_dump(mode="json"),
+                duration_ms=result.duration_ms
+            )
+        except Exception as e:
+            logger.warning("Failed to save detective analysis", error=str(e))
+        
         # Check if we found any errors
         if not context.detective_report.errors:
             logger.warning("No errors found in logs")
@@ -437,6 +448,17 @@ class Orchestrator:
             return False
         
         context.reasoner_output = result.output.output
+        
+        # Save reasoner output to database
+        try:
+            await self.incident_repo.save_analysis(
+                incident_id=context.incident_id,
+                agent="reasoner",
+                output=context.reasoner_output.model_dump(mode="json"),
+                duration_ms=result.duration_ms
+            )
+        except Exception as e:
+            logger.warning("Failed to save reasoner analysis", error=str(e))
         
         # Save patch to database using a fresh session
         try:
