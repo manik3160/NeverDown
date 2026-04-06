@@ -161,21 +161,27 @@ class Orchestrator:
                 return False
             
             # Success!
-            # Store the branch name for potential future updates
+            # Store the branch name and PR URL for potential future updates
             # Use a fresh session since the main session may be stale after
             # the long pipeline run (Neon serverless closes idle connections)
-            if context.pull_request and hasattr(context.pull_request, 'branch_name'):
+            if context.pull_request:
                 try:
                     from database.connection import get_session
                     async with get_session() as session:
                         temp_repo = IncidentRepository(session)
-                        await temp_repo.set_pr_branch(
-                            context.incident_id,
-                            context.pull_request.branch_name,
-                        )
+                        if hasattr(context.pull_request, 'branch_name') and context.pull_request.branch_name:
+                            await temp_repo.set_pr_branch(
+                                context.incident_id,
+                                context.pull_request.branch_name,
+                            )
+                        if hasattr(context.pull_request, 'pr_url') and context.pull_request.pr_url:
+                            await temp_repo.set_pr_url(
+                                context.incident_id,
+                                context.pull_request.pr_url,
+                            )
                         await session.commit()
                 except Exception as e:
-                    logger.warning("Failed to store PR branch name", error=str(e))
+                    logger.warning("Failed to store PR details", error=str(e))
             
             # Set status to AWAITING_REVIEW (human-in-the-loop)
             await self._update_status(
