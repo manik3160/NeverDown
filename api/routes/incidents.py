@@ -56,7 +56,7 @@ async def check_sha_deduplication(
 async def check_circuit_breaker(
     session: AsyncSession,
     repo_url: str,
-    limit_count: int = 2,
+    limit_count: int = 10,
     window_minutes: int = 5
 ) -> bool:
     """Check if the incident threshold for a repository has been exceeded."""

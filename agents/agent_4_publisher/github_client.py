@@ -52,10 +52,13 @@ class GitHubClient:
         
         if token:
             self._token = token
+            logger.info("GitHubClient initialized with provided token")
         elif self.settings.GITHUB_TOKEN:
             self._token = self.settings.GITHUB_TOKEN.get_secret_value()
+            logger.info("GitHubClient initialized with token from settings (GITHUB_TOKEN)")
         else:
             self._token = None
+            logger.warning("GitHubClient initialized WITHOUT a token! API requests will be unauthenticated.")
     
     @property
     def headers(self) -> Dict[str, str]:
