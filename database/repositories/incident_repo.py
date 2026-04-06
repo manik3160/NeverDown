@@ -1,7 +1,7 @@
 """Incident repository for data access."""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import select, update
