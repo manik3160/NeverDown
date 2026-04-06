@@ -246,7 +246,7 @@ export default function IncidentDetail() {
                     )}
 
                     <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-10 mb-4">Raw Execution Logs</div>
-                    <div className="bg-[#f9fafb] border border-gray-100 rounded-lg p-5 font-mono text-[11px] text-gray-400 leading-relaxed shadow-inner max-h-[200px] overflow-y-auto">
+                    <div className="bg-[#141414] border border-[#2a2a2a] rounded-xl p-6 font-mono text-[11.5px] text-gray-300 leading-relaxed shadow-xl max-h-[300px] overflow-y-auto custom-scrollbar">
                        {incident?.logs ? <pre className="whitespace-pre-wrap">{incident.logs}</pre> : <div>Awaiting detailed execution trace...</div>}
                     </div>
                  </div>
