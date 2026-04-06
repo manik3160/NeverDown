@@ -94,7 +94,7 @@ class SanitizerAgent(BaseAgent[SanitizeInput, SanitizeOutput]):
             
             # Performance: Ignore dependency and build directories
             ignore_patterns = shutil.ignore_patterns(
-                '.git', 'node_modules', 'dist', '.next', 'build', 
+                'node_modules', 'dist', '.next', 'build', 
                 'venv', '.venv', '__pycache__', 'out', '.vercel'
             )
             shutil.copytree(repo_path, sanitized_path, ignore=ignore_patterns)
