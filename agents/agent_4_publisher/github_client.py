@@ -193,7 +193,8 @@ class GitHubClient:
         """
         import base64
         
-        url = f"{self.BASE_URL}/repos/{owner}/{repo}/contents/{file_path}"
+        clean_path = file_path.lstrip('/')
+        url = f"{self.BASE_URL}/repos/{owner}/{repo}/contents/{clean_path}"
         
         # Check if file exists (to get SHA for update)
         sha = None
